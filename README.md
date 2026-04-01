@@ -2,8 +2,6 @@
 
 A self-hosted password vault built for simplicity. One Docker container, one master password, AES-256 encryption.
 
-![Python](https://img.shields.io/badge/python-3.12-blue) ![License](https://img.shields.io/badge/license-MIT-green)
-
 ## Features
 
 - **AES-256-GCM** encryption on all entries (per-entry salt + nonce)
@@ -22,7 +20,7 @@ A self-hosted password vault built for simplicity. One Docker container, one mas
 ## Quick Start
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/lockbox.git
+git clone https://github.com/mhamida292/lockbox.git
 cd lockbox
 cp docker-compose.example.yml docker-compose.yml
 ```
