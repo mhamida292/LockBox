@@ -1,0 +1,15 @@
+services:
+  lockbox:
+    build: .
+    container_name: lockbox
+    restart: unless-stopped
+    ports:
+      - "8743:8743"
+    volumes:
+      - lockbox-data:/data
+    environment:
+      # Generate a key: python3 -c "import secrets; print(secrets.token_hex(32))"
+      SECRET_KEY: "change-me-to-a-random-string"
+
+volumes:
+  lockbox-data:
