@@ -22,7 +22,7 @@ A self-hosted password vault built for simplicity. One Docker container, one mas
 ## Quick Start
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/lockbox.git
+git clone https://github.com/mhamida292/lockbox.git
 cd lockbox
 cp docker-compose.example.yml docker-compose.yml
 ```
