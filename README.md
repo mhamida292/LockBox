@@ -71,13 +71,17 @@ docker cp lockbox:/data/vault.db ./vault-backup.db
 
 Without your master password, the backup is useless to anyone else.
 
+## Extension To Do:
+- Link to open Vault
+- Icon fix
+- Category fix
+- Sense which website we're on to fill.
+- MAYBE: Include feature on input form to fill with appropriate account
+- Deploy in an easy way. Doesn't necessarily need to be public. 
+
 ## Tech Stack
 
 - Python / Flask / Gunicorn
 - SQLite
 - Argon2 + AES-256-GCM + PBKDF2
 - Vanilla JS frontend
-
-## License
-
-MIT
