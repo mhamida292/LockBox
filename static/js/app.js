@@ -384,20 +384,32 @@ async function saveEntry(){
   if(type==='login'){body.data.username=document.getElementById('eUser').value;body.data.password=document.getElementById('ePass').value;body.data.url=document.getElementById('eUrl').value}
   body.data.notes=document.getElementById('eNotes').value;
   const eid=expandedId;
+  let res;
   if(eid!=='new'){
-    await fetch(`/api/entries/${eid}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    res=await fetch(`/api/entries/${eid}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   }else{
-    await fetch('/api/entries',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    res=await fetch('/api/entries',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  }
+  const d=await res.json();
+  if(d.entry){
+    if(eid!=='new'){
+      const idx=entries.findIndex(x=>x.id===eid);
+      if(idx>=0)entries[idx]=d.entry;
+    }else{
+      entries.unshift(d.entry);
+    }
+    renderF();
   }
   expandedId=null;
-  await loadData();
+  render();
   toast(eid!=='new'?'Entry updated':'Entry saved');
 }
 async function delEntry(id){
   if(!confirm('Delete this entry permanently?'))return;
   await fetch(`/api/entries/${id}`,{method:'DELETE'});
+  entries=entries.filter(x=>x.id!==id);
   expandedId=null;
-  await loadData();
+  renderF();render();
   toast('Entry deleted');
 }
 

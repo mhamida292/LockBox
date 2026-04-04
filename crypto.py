@@ -13,6 +13,8 @@ def derive_key(master_password: str, salt: bytes) -> bytes:
     )
     return kdf.derive(master_password.encode())
 
+# ── Password-based (used for export/import backup files) ──────────────
+
 def encrypt_data(plaintext: str, master_password: str) -> str:
     salt = os.urandom(16)
     key = derive_key(master_password, salt)
@@ -28,5 +30,20 @@ def decrypt_data(ciphertext_b64: str, master_password: str) -> str:
     nonce = raw[16:28]
     ct = raw[28:]
     key = derive_key(master_password, salt)
+    aesgcm = AESGCM(key)
+    return aesgcm.decrypt(nonce, ct, None).decode()
+
+# ── Key-based (used for entries — key is derived once at login) ────────
+
+def encrypt_with_key(plaintext: str, key: bytes) -> str:
+    aesgcm = AESGCM(key)
+    nonce = os.urandom(12)
+    ct = aesgcm.encrypt(nonce, plaintext.encode(), None)
+    return base64.b64encode(nonce + ct).decode()
+
+def decrypt_with_key(ciphertext_b64: str, key: bytes) -> str:
+    raw = base64.b64decode(ciphertext_b64)
+    nonce = raw[:12]
+    ct = raw[12:]
     aesgcm = AESGCM(key)
     return aesgcm.decrypt(nonce, ct, None).decode()
