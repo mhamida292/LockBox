@@ -420,16 +420,155 @@ async function clearAll(){
   closeSet();toast('All data cleared');setTimeout(()=>location.reload(),1000);
 }
 
+// ── Export / Import ───────────────────────────────────────────────────
+
+let exportFormat='encrypted',exportStep=1;
+let importStep=1,importFile=null;
+
+function openExportModal(fmt){
+  exportFormat=fmt;
+  exportStep=1;
+  document.getElementById('exMt').textContent=fmt==='encrypted'?'Export Backup':'Export CSV';
+  document.getElementById('exMaster').value='';
+  document.getElementById('exBackup').value='';
+  document.getElementById('exBackupConfirm').value='';
+  document.getElementById('exConfirm').value='';
+  document.getElementById('exErr').textContent='';
+  document.getElementById('exStep1').style.display='block';
+  document.getElementById('exStep2').style.display='none';
+  document.getElementById('exBtn').textContent='Next';
+  document.getElementById('exOv').classList.add('on');
+  closeSet();
+  setTimeout(()=>document.getElementById('exMaster').focus(),50);
+}
+function closeExportModal(){document.getElementById('exOv').classList.remove('on')}
+
+async function doExport(){
+  const err=document.getElementById('exErr');
+  err.textContent='';
+  if(exportStep===1){
+    const master=document.getElementById('exMaster').value;
+    if(!master){err.textContent='Enter your master password';return}
+    exportStep=2;
+    document.getElementById('exStep1').style.display='none';
+    document.getElementById('exStep2').style.display='block';
+    if(exportFormat==='encrypted'){
+      document.getElementById('exBackupWrap').style.display='block';
+      document.getElementById('exConfirmWrap').style.display='none';
+      document.getElementById('exBtn').textContent='Export';
+      setTimeout(()=>document.getElementById('exBackup').focus(),50);
+    }else{
+      document.getElementById('exBackupWrap').style.display='none';
+      document.getElementById('exConfirmWrap').style.display='block';
+      document.getElementById('exBtn').textContent='Export';
+      setTimeout(()=>document.getElementById('exConfirm').focus(),50);
+    }
+    return;
+  }
+  // Step 2: execute
+  const master=document.getElementById('exMaster').value;
+  if(exportFormat==='csv'){
+    if(document.getElementById('exConfirm').value!=='EXPORT'){err.textContent='Type EXPORT to confirm';return}
+  }else{
+    const bp=document.getElementById('exBackup').value;
+    const bpc=document.getElementById('exBackupConfirm').value;
+    if(!bp||bp.length<8){err.textContent='Backup password must be at least 8 characters';return}
+    if(bp!==bpc){err.textContent='Passwords don\'t match';return}
+  }
+  const body={master_password:master,format:exportFormat};
+  if(exportFormat==='encrypted')body.backup_password=document.getElementById('exBackup').value;
+  const res=await fetch('/api/export',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!res.ok){const d=await res.json();err.textContent=d.error;return}
+  const blob=await res.blob();
+  const cd=res.headers.get('Content-Disposition')||'';
+  const fnMatch=cd.match(/filename=(.+)/);
+  const fn=fnMatch?fnMatch[1]:(exportFormat==='csv'?'lockbox-export.csv':'lockbox-backup.enc');
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=fn;document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  closeExportModal();
+  toast('Export complete');
+}
+
+function openImportFlow(){
+  importStep=1;importFile=null;
+  document.getElementById('imStep1').style.display='block';
+  document.getElementById('imStep2').style.display='none';
+  document.getElementById('imStep3').style.display='none';
+  document.getElementById('imErr').textContent='';
+  document.getElementById('imFile').value='';
+  document.getElementById('imBtn').textContent='Next';
+  document.getElementById('imOv').classList.add('on');
+  closeSet();
+}
+function closeImportModal(){document.getElementById('imOv').classList.remove('on')}
+
+async function doImportStep(){
+  const err=document.getElementById('imErr');
+  err.textContent='';
+  if(importStep===1){
+    const fileInput=document.getElementById('imFile');
+    if(!fileInput.files.length){err.textContent='Select a file';return}
+    importFile=fileInput.files[0];
+    if(importFile.name.endsWith('.enc')){
+      importStep=2;
+      document.getElementById('imStep1').style.display='none';
+      document.getElementById('imStep2').style.display='block';
+      document.getElementById('imBtn').textContent='Import';
+      setTimeout(()=>document.getElementById('imPass').focus(),50);
+    }else{
+      importStep=3;
+      document.getElementById('imStep1').style.display='none';
+      document.getElementById('imStep3').style.display='block';
+      document.getElementById('imPreview').innerHTML=`Ready to import <strong>${esc(importFile.name)}</strong>?`;
+      document.getElementById('imBtn').textContent='Import';
+    }
+    return;
+  }
+  if(importStep===2){
+    const pw=document.getElementById('imPass').value;
+    if(!pw){err.textContent='Enter the backup password';return}
+    importStep=3;
+    document.getElementById('imStep2').style.display='none';
+    document.getElementById('imStep3').style.display='block';
+    document.getElementById('imPreview').innerHTML=`Ready to import <strong>${esc(importFile.name)}</strong>?`;
+    document.getElementById('imBtn').textContent='Import';
+    return;
+  }
+  // Step 3: do import
+  const fd=new FormData();
+  fd.append('file',importFile);
+  if(importFile.name.endsWith('.enc')){
+    fd.append('backup_password',document.getElementById('imPass').value);
+  }
+  document.getElementById('imBtn').textContent='Importing...';
+  const res=await fetch('/api/import',{method:'POST',body:fd});
+  const d=await res.json();
+  if(d.ok){
+    closeImportModal();
+    await loadData();
+    let msg=`Imported ${d.imported_entries} entries`;
+    if(d.imported_folders)msg+=` and ${d.imported_folders} folders`;
+    toast(msg);
+  }else{
+    err.textContent=d.error;
+    document.getElementById('imBtn').textContent='Import';
+  }
+}
+
 // ── Utils ─────────────────────────────────────────────────────────────
 
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
 document.getElementById('sOv').addEventListener('click',e=>{if(e.target===e.currentTarget)closeSet()});
 document.getElementById('fOv').addEventListener('click',e=>{if(e.target===e.currentTarget)closeFolderModal()});
+document.getElementById('exOv').addEventListener('click',e=>{if(e.target===e.currentTarget)closeExportModal()});
+document.getElementById('imOv').addEventListener('click',e=>{if(e.target===e.currentTarget)closeImportModal()});
 document.getElementById('fName').addEventListener('keydown',e=>{if(e.key==='Enter')saveFolderModal()});
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
     if(expandedId!==null){closeInline();return}
-    closeSet();closeFolderModal();
+    closeSet();closeFolderModal();closeExportModal();closeImportModal();
   }
   if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();document.getElementById('searchIn').focus()}
 });

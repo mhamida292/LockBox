@@ -103,6 +103,15 @@
                 <div class="srow"><div><div class="slabel">Auto-lock timeout</div><div class="sdesc">Lock vault after inactivity</div></div><select id="sLock" onchange="savePref('lockMin',this.value)"><option value="15">15 min</option><option value="30" selected>30 min</option><option value="60">1 hour</option><option value="0">Never</option></select></div>
             </div>
             <div class="ss-section">
+                <div class="ss-title">Data</div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                    <button class="bpri" onclick="openExportModal('encrypted')" style="width:100%">Export Backup</button>
+                    <button class="bgho" onclick="openExportModal('csv')" style="width:100%">Export CSV</button>
+                    <button class="bgho" onclick="openImportFlow()" style="width:100%">Import</button>
+                </div>
+                <div class="cwarn" style="margin-top:8px">Export an encrypted backup or plain CSV. Import from Lockbox, Bitwarden, Chrome, or LastPass.</div>
+            </div>
+            <div class="ss-section">
                 <div class="ss-title">Danger Zone</div>
                 <button class="bclear" onclick="clearAll()">Clear All Data</button>
                 <div class="cwarn">Permanently deletes all entries, folders, and your master password. You will need to create a new vault.</div>
@@ -128,6 +137,54 @@
                 <button class="bpri" onclick="saveFolderModal()">Save</button>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Export Modal -->
+<div class="ov" id="exOv">
+    <div class="modal">
+        <div class="mh"><div class="mt" id="exMt">Export Backup</div><button class="mx" onclick="closeExportModal()">&times;</button></div>
+        <div class="mb">
+            <div id="exStep1">
+                <div class="fg"><label class="fl">Master Password</label><input class="finp" type="password" id="exMaster" placeholder="Enter your master password"></div>
+            </div>
+            <div id="exStep2" style="display:none">
+                <div class="fg" id="exBackupWrap">
+                    <label class="fl">Backup Password</label>
+                    <input class="finp" type="password" id="exBackup" placeholder="Create a backup password">
+                    <div class="fg" style="margin-top:8px"><label class="fl">Confirm Backup Password</label><input class="finp" type="password" id="exBackupConfirm" placeholder="Confirm backup password"></div>
+                    <div class="cwarn" style="margin-top:8px">You'll need this password to restore the backup.</div>
+                </div>
+                <div class="fg" id="exConfirmWrap" style="display:none">
+                    <label class="fl">Type EXPORT to confirm</label>
+                    <input class="finp" id="exConfirm" placeholder="EXPORT">
+                    <div class="cwarn" style="margin-top:8px">CSV export contains passwords in plain text. Delete the file after use.</div>
+                </div>
+            </div>
+            <div class="auth-error" id="exErr"></div>
+        </div>
+        <div class="mf"><div></div><button class="bpri" id="exBtn" onclick="doExport()">Next</button></div>
+    </div>
+</div>
+
+<!-- Import Modal -->
+<div class="ov" id="imOv">
+    <div class="modal">
+        <div class="mh"><div class="mt">Import</div><button class="mx" onclick="closeImportModal()">&times;</button></div>
+        <div class="mb">
+            <div id="imStep1">
+                <div class="fg"><label class="fl">Select File</label><input type="file" id="imFile" accept=".enc,.csv" class="finp"></div>
+                <div class="cwarn">Supports Lockbox (.enc, .csv), Bitwarden, Chrome, and LastPass CSV exports.</div>
+            </div>
+            <div id="imStep2" style="display:none">
+                <div class="fg"><label class="fl">Backup Password</label><input class="finp" type="password" id="imPass" placeholder="Enter backup password"></div>
+            </div>
+            <div id="imStep3" style="display:none">
+                <div id="imPreview" style="text-align:center;padding:16px 0;font-size:14px"></div>
+            </div>
+            <div class="auth-error" id="imErr"></div>
+        </div>
+        <div class="mf"><div></div><button class="bpri" id="imBtn" onclick="doImportStep()">Next</button></div>
     </div>
 </div>
 
