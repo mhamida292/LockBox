@@ -71,8 +71,8 @@ button,input,textarea,select{font-family:var(--sans)}
 .fi-item .fn{display:flex;align-items:center;gap:8px}
 .fi-item .fc{font-family:var(--mono);font-size:10px;color:var(--text-muted);background:var(--surface2);padding:2px 7px;border-radius:10px}
 .fi-item.on .fc{background:var(--accent-glow2);color:var(--accent-dim)}
-.fdel{opacity:0;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:15px;padding:2px 4px;border-radius:4px;transition:all .12s}
-.fi-item:hover .fdel{opacity:.7} .fdel:hover{color:var(--danger);opacity:1!important}
+.fdel,.fedit{opacity:0;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px;padding:2px 4px;border-radius:4px;transition:all .12s}
+.fi-item:hover .fdel,.fi-item:hover .fedit{opacity:.7} .fdel:hover{color:var(--danger);opacity:1!important} .fedit:hover{color:var(--accent);opacity:1!important}
 .addf{display:flex;align-items:center;gap:8px;padding:10px 20px;font-size:12px;color:var(--text-muted);cursor:pointer;border:none;background:none;width:100%;text-align:left;transition:color .15s}
 .addf:hover{color:var(--accent)}
 
@@ -167,3 +167,10 @@ button,input,textarea,select{font-family:var(--sans)}
 
 @keyframes su{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @keyframes ss{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+
+.eicon svg{width:20px;height:20px}
+
+.icon-picker{display:grid;grid-template-columns:repeat(10,1fr);gap:5px;padding:4px 0}
+.icon-opt{background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;aspect-ratio:1;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;color:var(--text-muted);padding:0}
+.icon-opt:hover{border-color:var(--border-hover);color:var(--text)}
+.icon-opt.on{border-color:var(--accent);background:var(--accent-glow);color:var(--accent)}
