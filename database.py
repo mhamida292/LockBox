@@ -40,6 +40,12 @@ def init_db():
         conn.commit()
     except sqlite3.OperationalError:
         pass  # Column already exists
+    # Migrate: add color column if it doesn't exist
+    try:
+        conn.execute("ALTER TABLE folders ADD COLUMN color TEXT NOT NULL DEFAULT ''")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # Column already exists
     try:
         conn.execute("INSERT INTO folders (name) VALUES (?)", ("General",))
         conn.commit()

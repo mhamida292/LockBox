@@ -1,5 +1,7 @@
-let entries=[],folders=[],aFolder=null,aType='all',editId=null;
-let selFolderIcon='key',editFolderId=null;
+let entries=[],folders=[],aFolder=null,aType='all',aSort='updated';
+let expandedId=null; // null, 'new', or entry id
+let selFolderIcon='key',selFolderColor='',editFolderId=null;
+let lockTimer=null,trackingStarted=false;
 let P={theme:'midnight',pwLen:'20',symbols:'true',lockMin:'30'};
 try{const s=JSON.parse(localStorage.getItem('lb_p'));if(s)P={...P,...s}}catch(e){}
 
@@ -28,12 +30,25 @@ const ICONS={
   filetext:  {n:'Document',   p:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>'},
 };
 
-function iconSvg(id,size=20){
+const COLORS=[
+  {hex:'',        label:'Default'},
+  {hex:'#6c8cff', label:'Blue'},
+  {hex:'#e8853a', label:'Orange'},
+  {hex:'#3dd68c', label:'Green'},
+  {hex:'#ff5c6a', label:'Red'},
+  {hex:'#a78bfa', label:'Purple'},
+  {hex:'#f59e0b', label:'Yellow'},
+  {hex:'#06b6d4', label:'Cyan'},
+  {hex:'#ec4899', label:'Pink'},
+];
+
+function iconSvg(id,size=20,color=null){
   const path=(ICONS[id]||ICONS.key).p;
-  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+  const stroke=color||'currentColor';
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
 }
 
-// ── Folder icon picker ────────────────────────────────────────────────
+// ── Folder icon + color pickers ───────────────────────────────────────
 
 function renderFolderIconPicker(){
   return Object.entries(ICONS).map(([id,{n}])=>
@@ -41,6 +56,15 @@ function renderFolderIconPicker(){
   ).join('');
 }
 function pickFolderIcon(id){selFolderIcon=id;document.getElementById('folderIconPicker').innerHTML=renderFolderIconPicker()}
+
+function renderColorPicker(){
+  return COLORS.map(({hex,label})=>{
+    const cls=`color-opt${!hex?' color-default':''}${selFolderColor===hex?' on':''}`;
+    const style=hex?`background:${hex}`:'';
+    return `<button type="button" class="${cls}" onclick="pickFolderColor('${hex}')" title="${label}" style="${style}"></button>`;
+  }).join('');
+}
+function pickFolderColor(hex){selFolderColor=hex;document.getElementById('colorPicker').innerHTML=renderColorPicker()}
 
 // ── Prefs ─────────────────────────────────────────────────────────────
 
@@ -51,9 +75,26 @@ function applyP(){
   const s=document.getElementById('sSym');if(s)s.value=P.symbols;
   const k=document.getElementById('sLock');if(k)k.value=P.lockMin;
 }
-function savePref(k,v){P[k]=v;localStorage.setItem('lb_p',JSON.stringify(P));applyP()}
+function savePref(k,v){P[k]=v;localStorage.setItem('lb_p',JSON.stringify(P));applyP();if(k==='lockMin')resetLockTimer()}
 function setTheme(t){savePref('theme',t)}
 applyP();
+
+// ── Auto-lock ─────────────────────────────────────────────────────────
+
+function resetLockTimer(){
+  if(lockTimer)clearTimeout(lockTimer);
+  const mins=parseInt(P.lockMin);
+  if(!mins)return;
+  lockTimer=setTimeout(doLogout,mins*60*1000);
+}
+function startActivityTracking(){
+  if(trackingStarted)return;
+  trackingStarted=true;
+  ['mousemove','keydown','click','touchstart'].forEach(ev=>
+    document.addEventListener(ev,resetLockTimer,{passive:true})
+  );
+  resetLockTimer();
+}
 
 // ── Init / Auth ───────────────────────────────────────────────────────
 
@@ -79,7 +120,12 @@ async function doAuth(){
 }
 ['masterIn','confirmIn'].forEach(id=>document.getElementById(id).addEventListener('keydown',e=>{if(e.key==='Enter')doAuth()}));
 
-async function showApp(){document.getElementById('authScreen').style.display='none';document.getElementById('app').classList.add('active');await loadData()}
+async function showApp(){
+  document.getElementById('authScreen').style.display='none';
+  document.getElementById('app').classList.add('active');
+  await loadData();
+  startActivityTracking();
+}
 async function doLogout(){await fetch('/api/logout',{method:'POST'});location.reload()}
 async function loadData(){const[f,e]=await Promise.all([fetch('/api/folders'),fetch('/api/entries')]);folders=await f.json();entries=await e.json();renderF();render()}
 
@@ -93,7 +139,7 @@ function renderF(){
   entries.forEach(e=>{const k=e.folder_id||'x';ct[k]=(ct[k]||0)+1});
   let h=`<li class="fi-item ${aFolder===null?'on':''}" onclick="pickF(null)"><span class="fn">📁 All</span><span class="fc">${entries.length}</span></li>`;
   folders.forEach(f=>{
-    const fic=iconSvg(f.icon||'key',14);
+    const fic=iconSvg(f.icon||'key',14,f.color||null);
     h+=`<li class="fi-item ${aFolder===f.id?'on':''}" onclick="pickF(${f.id})">
       <span class="fn">${fic} ${esc(f.name)}</span>
       <span style="display:flex;align-items:center;gap:4px">
@@ -105,7 +151,6 @@ function renderF(){
   });
   el.innerHTML=h;
 }
-
 function pickF(id){aFolder=id;renderF();render();closeSB()}
 
 // ── Folder modal ──────────────────────────────────────────────────────
@@ -117,28 +162,142 @@ function openFolderModal(fid=null){
     document.getElementById('fMt').textContent='Edit Folder';
     document.getElementById('fName').value=f.name;
     selFolderIcon=f.icon||'key';
+    selFolderColor=f.color||'';
   }else{
     document.getElementById('fMt').textContent='New Folder';
     document.getElementById('fName').value='';
     selFolderIcon='key';
+    selFolderColor='';
   }
   document.getElementById('folderIconPicker').innerHTML=renderFolderIconPicker();
+  document.getElementById('colorPicker').innerHTML=renderColorPicker();
   document.getElementById('fOv').classList.add('on');
+  setTimeout(()=>document.getElementById('fName').focus(),50);
 }
 function closeFolderModal(){document.getElementById('fOv').classList.remove('on')}
 async function saveFolderModal(){
   const name=document.getElementById('fName').value.trim();
   if(!name){toast('Name required');return}
   if(editFolderId){
-    await fetch(`/api/folders/${editFolderId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,icon:selFolderIcon})});
+    await fetch(`/api/folders/${editFolderId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,icon:selFolderIcon,color:selFolderColor})});
   }else{
-    await fetch('/api/folders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,icon:selFolderIcon})});
+    await fetch('/api/folders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,icon:selFolderIcon,color:selFolderColor})});
   }
   closeFolderModal();await loadData();toast(editFolderId?'Folder updated':'Folder created');
 }
-
 async function delF(id){if(!confirm('Delete folder? Entries move to uncategorized.'))return;await fetch(`/api/folders/${id}`,{method:'DELETE'});if(aFolder===id)aFolder=null;await loadData()}
 function setType(t,btn){aType=t;document.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');render();closeSB()}
+function setSort(v){aSort=v;render()}
+
+// ── Password strength ─────────────────────────────────────────────────
+
+function passwordScore(pw){
+  if(!pw)return -1;
+  let s=0;
+  if(pw.length>=8)s++;
+  if(pw.length>=14)s++;
+  if(/[A-Z]/.test(pw))s++;
+  if(/[0-9]/.test(pw))s++;
+  if(/[^A-Za-z0-9]/.test(pw))s++;
+  return Math.min(s,4);
+}
+function updateStrength(){
+  const pw=document.getElementById('ePass');
+  if(!pw)return;
+  const val=pw.value;
+  const wrap=document.getElementById('pwStrength');
+  if(!wrap)return;
+  if(!val){wrap.style.display='none';return}
+  wrap.style.display='flex';
+  const score=passwordScore(val);
+  const levels=[
+    {t:'Very weak',c:'#ff5c6a',w:'20%'},
+    {t:'Weak',     c:'#ff8c42',w:'40%'},
+    {t:'Fair',     c:'#f59e0b',w:'60%'},
+    {t:'Good',     c:'#84cc16',w:'80%'},
+    {t:'Strong',   c:'#3dd68c',w:'100%'},
+  ];
+  const l=levels[score<0?0:score];
+  const bar=document.getElementById('pwBar');
+  const lbl=document.getElementById('pwLabel');
+  if(bar)bar.style.cssText=`width:${l.w};background:${l.c}`;
+  if(lbl){lbl.textContent=l.t;lbl.style.color=l.c}
+}
+
+// ── Inline entry form builder ─────────────────────────────────────────
+
+function buildEntryForm(e){
+  // e is null for new entry, or the entry object for edit
+  const isEdit=!!e;
+  const type=e?e.type:'login';
+  const title=e?esc(e.title):'';
+  const user=e?esc(e.data.username||''):'';
+  const pass=e?esc(e.data.password||''):'';
+  const url=e?esc(e.data.url||''):'';
+  const notes=e?esc(e.data.notes||''):'';
+  const fid=e?e.folder_id:aFolder;
+  const loginDisplay=type==='login'?'block':'none';
+  const notesLabel=type==='login'?'Notes':'Content';
+
+  const folderOpts='<option value="">No folder</option>'+folders.map(f=>
+    `<option value="${f.id}" ${f.id===fid?'selected':''}>${esc(f.name)}</option>`
+  ).join('');
+
+  return `
+    <div class="ef-form">
+      <div class="ef-row ef-row-type">
+        <div class="ef-field ef-half">
+          <label class="fl">Type</label>
+          <select class="fsel" id="eType" onchange="togLoginInline()">
+            <option value="login" ${type==='login'?'selected':''}>Login</option>
+            <option value="note" ${type==='note'?'selected':''}>Secure Note</option>
+          </select>
+        </div>
+        <div class="ef-field ef-half">
+          <label class="fl">Folder</label>
+          <select class="fsel" id="eFolder">${folderOpts}</select>
+        </div>
+      </div>
+      <div class="ef-field">
+        <label class="fl">Title</label>
+        <input class="finp" id="eTitle" placeholder="e.g. GitHub, Netflix..." value="${title}">
+      </div>
+      <div id="loginF" style="display:${loginDisplay}">
+        <div class="ef-field">
+          <label class="fl">Username / Email</label>
+          <input class="finp" id="eUser" placeholder="user@example.com" autocomplete="off" value="${user}">
+        </div>
+        <div class="ef-field">
+          <label class="fl">Password</label>
+          <div class="frow">
+            <div class="fg"><input class="finp" type="password" id="ePass" placeholder="••••••••" autocomplete="off" value="${pass}" oninput="updateStrength()"></div>
+            <button class="bsm" onclick="togPw()" title="Show/hide" type="button">👁</button>
+            <button class="bgen" onclick="genFill()" type="button">GEN</button>
+          </div>
+          <div class="pw-strength" id="pwStrength" style="display:none">
+            <div class="pw-strength-track"><div class="pw-strength-bar" id="pwBar"></div></div>
+            <div class="pw-strength-label" id="pwLabel"></div>
+          </div>
+        </div>
+        <div class="ef-field">
+          <label class="fl">URL</label>
+          <input class="finp" id="eUrl" placeholder="https://..." value="${url}">
+        </div>
+      </div>
+      <div class="ef-field">
+        <label class="fl" id="nLbl">${notesLabel}</label>
+        <textarea class="fta" id="eNotes" placeholder="Optional notes...">${notes}</textarea>
+      </div>
+      <div class="ef-actions">
+        ${isEdit?`<button class="bdng" onclick="delEntry(${e.id})" type="button">Delete</button>`:'<div></div>'}
+        <div class="ef-actions-right">
+          <button class="bgho" onclick="closeInline()" type="button">Cancel</button>
+          <button class="bpri" onclick="saveEntry()" type="button">Save</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
 
 // ── Render entries ────────────────────────────────────────────────────
 
@@ -148,53 +307,74 @@ function render(){
   if(aFolder!==null)list=list.filter(e=>e.folder_id===aFolder);
   if(aType!=='all')list=list.filter(e=>e.type===aType);
   if(q)list=list.filter(e=>e.title.toLowerCase().includes(q)||(e.data.username||'').toLowerCase().includes(q)||(e.data.url||'').toLowerCase().includes(q)||(e.data.notes||'').toLowerCase().includes(q));
+  if(aSort==='az')list=[...list].sort((a,b)=>a.title.localeCompare(b.title));
+  else if(aSort==='za')list=[...list].sort((a,b)=>b.title.localeCompare(a.title));
+  else if(aSort==='created')list=[...list].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
   const el=document.getElementById('elist');
-  if(!list.length){el.innerHTML=`<div class="empty"><div class="empty-hex">⬡</div><p>No entries${q?' found':' yet'}</p><div class="hint">${q?'Try a different search':'Tap + to add your first entry'}</div></div>`;return}
-  el.innerHTML=list.map((e,i)=>{
+
+  let html='';
+
+  // New entry form at top
+  if(expandedId==='new'){
+    html+=`<div class="ecard expanded">${buildEntryForm(null)}</div>`;
+  }
+
+  if(!list.length && expandedId!=='new'){
+    el.innerHTML=`<div class="empty"><div class="empty-hex">⬡</div><p>No entries${q?' found':' yet'}</p><div class="hint">${q?'Try a different search':'Tap + to add your first entry'}</div></div>`;
+    return;
+  }
+
+  html+=list.map((e,i)=>{
+    if(expandedId===e.id){
+      return `<div class="ecard expanded" data-type="${e.type}">${buildEntryForm(e)}</div>`;
+    }
     const folder=folders.find(f=>f.id===e.folder_id);
-    const ic=iconSvg(folder?.icon||(e.type==='login'?'key':'filetext'));
+    const ic=iconSvg(folder?.icon||(e.type==='login'?'key':'filetext'),20,folder?.color||null);
     const meta=e.type==='login'?(e.data.username||e.data.url||'No username'):'Secure note';
+    const urlBtn=e.type==='login'&&e.data.url?`<button class="ecopy" onclick="event.stopPropagation();goToUrl(${e.id})" title="Open URL">🔗</button>`:'';
     const btns=e.type==='login'
-      ?`<button class="ecopy" onclick="event.stopPropagation();cpField(${e.id},'username')" title="Copy username">👤</button><button class="ecopy" onclick="event.stopPropagation();cpField(${e.id},'password')" title="Copy password">🔑</button>`
+      ?`<button class="ecopy" onclick="event.stopPropagation();cpField(${e.id},'username')" title="Copy username">👤</button><button class="ecopy" onclick="event.stopPropagation();cpField(${e.id},'password')" title="Copy password">🔑</button>${urlBtn}`
       :`<button class="ecopy" onclick="event.stopPropagation();cpField(${e.id},'notes')" title="Copy note">📋</button>`;
-    return`<div class="ecard" data-type="${e.type}" style="animation-delay:${i*.03}s" onclick="openEdit(${e.id})"><div class="eicon">${ic}</div><div class="einfo"><div class="etitle">${esc(e.title)}</div><div class="emeta">${esc(meta)}</div></div><div class="ecopy-group">${btns}</div></div>`
+    return`<div class="ecard" data-type="${e.type}" style="animation-delay:${i*.03}s" onclick="openEdit(${e.id})"><div class="eicon">${ic}</div><div class="einfo"><div class="etitle">${esc(e.title)}</div><div class="emeta">${esc(meta)}</div></div><div class="ecopy-group">${btns}</div></div>`;
   }).join('');
+
+  el.innerHTML=html;
+
+  // After render, scroll expanded card into view and trigger strength check
+  if(expandedId!==null){
+    const exp=el.querySelector('.ecard.expanded');
+    if(exp){
+      exp.scrollIntoView({behavior:'smooth',block:'nearest'});
+      setTimeout(()=>{
+        const titleIn=document.getElementById('eTitle');
+        if(titleIn && expandedId==='new')titleIn.focus();
+        updateStrength();
+      },60);
+    }
+  }
 }
 
-// ── Copy ──────────────────────────────────────────────────────────────
+// ── Inline entry actions ──────────────────────────────────────────────
 
-async function cpField(id,field){const e=entries.find(x=>x.id===id);if(!e)return;const t=e.data[field]||'';if(!t){toast('Nothing to copy');return}try{await navigator.clipboard.writeText(t)}catch(err){const ta=document.createElement('textarea');ta.value=t;ta.style.cssText='position:fixed;left:-9999px;top:-9999px';document.body.appendChild(ta);ta.focus();ta.select();document.execCommand('copy');document.body.removeChild(ta)}const labels={username:'Username',password:'Password',notes:'Note'};toast(labels[field]+' copied')}
-function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200)}
-
-// ── Entry modal ───────────────────────────────────────────────────────
-
-function openEntry(type='login'){
-  editId=null;
-  document.getElementById('eMt').textContent='New Entry';
-  document.getElementById('eType').value=type;
-  ['eTitle','eUser','ePass','eUrl','eNotes'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('ePass').type='password';
-  document.getElementById('bDel').style.display='none';
-  fillFS();togLogin();document.getElementById('eOv').classList.add('on');
+function openEntry(){
+  expandedId='new';
+  render();
 }
 function openEdit(id){
-  const e=entries.find(x=>x.id===id);if(!e)return;editId=id;
-  document.getElementById('eMt').textContent='Edit Entry';
-  document.getElementById('eType').value=e.type;
-  document.getElementById('eTitle').value=e.title;
-  document.getElementById('eUser').value=e.data.username||'';
-  document.getElementById('ePass').value=e.data.password||'';
-  document.getElementById('ePass').type='password';
-  document.getElementById('eUrl').value=e.data.url||'';
-  document.getElementById('eNotes').value=e.data.notes||'';
-  document.getElementById('bDel').style.display='inline-block';
-  fillFS(e.folder_id);togLogin();document.getElementById('eOv').classList.add('on');
+  expandedId=id;
+  render();
 }
-function closeEntry(){document.getElementById('eOv').classList.remove('on')}
-function togLogin(){const l=document.getElementById('eType').value==='login';document.getElementById('loginF').style.display=l?'block':'none';document.getElementById('nLbl').textContent=l?'Notes':'Content'}
-function fillFS(sel=null){const s=document.getElementById('eFolder');s.innerHTML='<option value="">No folder</option>'+folders.map(f=>`<option value="${f.id}" ${f.id===sel?'selected':''}>${esc(f.name)}</option>`).join('')}
-function togPw(){const i=document.getElementById('ePass');i.type=i.type==='password'?'text':'password'}
-async function genFill(){const r=await fetch(`/api/generate-password?length=${P.pwLen}&symbols=${P.symbols}`);const d=await r.json();document.getElementById('ePass').value=d.password;document.getElementById('ePass').type='text'}
+function closeInline(){
+  expandedId=null;
+  render();
+}
+function togLoginInline(){
+  const l=document.getElementById('eType').value==='login';
+  document.getElementById('loginF').style.display=l?'block':'none';
+  document.getElementById('nLbl').textContent=l?'Notes':'Content';
+}
+function togPw(){const i=document.getElementById('ePass');if(i)i.type=i.type==='password'?'text':'password'}
+async function genFill(){const r=await fetch(`/api/generate-password?length=${P.pwLen}&symbols=${P.symbols}`);const d=await r.json();const p=document.getElementById('ePass');if(p){p.value=d.password;p.type='text';updateStrength()}}
 
 async function saveEntry(){
   const type=document.getElementById('eType').value,title=document.getElementById('eTitle').value.trim();
@@ -203,11 +383,30 @@ async function saveEntry(){
   const body={type,title,folder_id:fid?parseInt(fid):null,data:{}};
   if(type==='login'){body.data.username=document.getElementById('eUser').value;body.data.password=document.getElementById('ePass').value;body.data.url=document.getElementById('eUrl').value}
   body.data.notes=document.getElementById('eNotes').value;
-  if(editId){await fetch(`/api/entries/${editId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})}
-  else{await fetch('/api/entries',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})}
-  closeEntry();await loadData();toast(editId?'Entry updated':'Entry saved');
+  const eid=expandedId;
+  if(eid!=='new'){
+    await fetch(`/api/entries/${eid}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  }else{
+    await fetch('/api/entries',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  }
+  expandedId=null;
+  await loadData();
+  toast(eid!=='new'?'Entry updated':'Entry saved');
 }
-async function delEntry(){if(!editId||!confirm('Delete this entry permanently?'))return;await fetch(`/api/entries/${editId}`,{method:'DELETE'});closeEntry();await loadData();toast('Entry deleted')}
+async function delEntry(id){
+  if(!confirm('Delete this entry permanently?'))return;
+  await fetch(`/api/entries/${id}`,{method:'DELETE'});
+  expandedId=null;
+  await loadData();
+  toast('Entry deleted');
+}
+
+// ── Copy ──────────────────────────────────────────────────────────────
+
+function goToUrl(id){const e=entries.find(x=>x.id===id);if(!e||!e.data.url)return;let url=e.data.url;if(!/^https?:\/\//i.test(url))url='https://'+url;window.open(url,'_blank')}
+
+async function cpField(id,field){const e=entries.find(x=>x.id===id);if(!e)return;const t=e.data[field]||'';if(!t){toast('Nothing to copy');return}try{await navigator.clipboard.writeText(t)}catch(err){const ta=document.createElement('textarea');ta.value=t;ta.style.cssText='position:fixed;left:-9999px;top:-9999px';document.body.appendChild(ta);ta.focus();ta.select();document.execCommand('copy');document.body.removeChild(ta)}const labels={username:'Username',password:'Password',notes:'Note'};toast(labels[field]+' copied')}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200)}
 
 // ── Settings modal ────────────────────────────────────────────────────
 
@@ -224,10 +423,16 @@ async function clearAll(){
 // ── Utils ─────────────────────────────────────────────────────────────
 
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
-document.getElementById('eOv').addEventListener('click',e=>{if(e.target===e.currentTarget)closeEntry()});
 document.getElementById('sOv').addEventListener('click',e=>{if(e.target===e.currentTarget)closeSet()});
 document.getElementById('fOv').addEventListener('click',e=>{if(e.target===e.currentTarget)closeFolderModal()});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeEntry();closeSet();closeFolderModal()}if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();document.getElementById('searchIn').focus()}});
+document.getElementById('fName').addEventListener('keydown',e=>{if(e.key==='Enter')saveFolderModal()});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    if(expandedId!==null){closeInline();return}
+    closeSet();closeFolderModal();
+  }
+  if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();document.getElementById('searchIn').focus()}
+});
 
 if(!sessionStorage.getItem('lb_alive')){
   fetch('/api/logout',{method:'POST'}).finally(()=>{

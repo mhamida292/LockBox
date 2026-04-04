@@ -150,7 +150,7 @@ def logout():
 @login_required
 def list_folders():
     conn = get_db()
-    rows = conn.execute("SELECT id, name, icon FROM folders ORDER BY name").fetchall()
+    rows = conn.execute("SELECT id, name, icon, color FROM folders ORDER BY name").fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
 
@@ -159,29 +159,31 @@ def list_folders():
 def create_folder():
     name = request.json.get("name", "").strip()
     icon = request.json.get("icon", "key")
+    color = request.json.get("color", "")
     if not name:
         return jsonify({"error": "Name required"}), 400
     conn = get_db()
     try:
-        cur = conn.execute("INSERT INTO folders (name, icon) VALUES (?, ?)", (name, icon))
+        cur = conn.execute("INSERT INTO folders (name, icon, color) VALUES (?, ?, ?)", (name, icon, color))
         conn.commit()
         fid = cur.lastrowid
     except sqlite3.IntegrityError:
         conn.close()
         return jsonify({"error": "Folder already exists"}), 409
     conn.close()
-    return jsonify({"id": fid, "name": name, "icon": icon})
+    return jsonify({"id": fid, "name": name, "icon": icon, "color": color})
 
 @bp.route("/api/folders/<int:fid>", methods=["PUT"])
 @login_required
 def update_folder(fid):
     name = request.json.get("name", "").strip()
     icon = request.json.get("icon", "key")
+    color = request.json.get("color", "")
     if not name:
         return jsonify({"error": "Name required"}), 400
     conn = get_db()
     try:
-        conn.execute("UPDATE folders SET name=?, icon=? WHERE id=?", (name, icon, fid))
+        conn.execute("UPDATE folders SET name=?, icon=?, color=? WHERE id=?", (name, icon, color, fid))
         conn.commit()
     except sqlite3.IntegrityError:
         conn.close()
