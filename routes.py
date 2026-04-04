@@ -1,4 +1,5 @@
 import json
+import os
 import string
 import secrets
 import sqlite3
@@ -13,7 +14,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 
 from database import get_db
-from crypto import encrypt_data, decrypt_data
+from crypto import encrypt_data, decrypt_data, encrypt_with_key, decrypt_with_key, derive_key
 
 bp = Blueprint('main', __name__)
 ph = PasswordHasher()
@@ -62,6 +63,36 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated
 
+def get_entry_key():
+    """Get the cached AES key from session (derived once at login)."""
+    import base64
+    return base64.b64decode(session["entry_key"])
+
+def setup_entry_key(master, conn):
+    """Derive the entry key from master password using a fixed salt, cache in session.
+    Also migrates old per-salt entries to the new key-based format."""
+    import base64 as b64
+    row = conn.execute("SELECT value FROM config WHERE key='key_salt'").fetchone()
+    if row:
+        salt = b64.b64decode(row["value"])
+    else:
+        salt = os.urandom(16)
+        conn.execute("INSERT INTO config (key, value) VALUES (?, ?)", ("key_salt", b64.b64encode(salt).decode()))
+        conn.commit()
+    key = derive_key(master, salt)
+    session["entry_key"] = b64.b64encode(key).decode()
+    # Migrate old entries (encrypted with per-entry salt) to new format
+    if not row:
+        entries = conn.execute("SELECT id, encrypted_data FROM entries").fetchall()
+        for e in entries:
+            try:
+                plaintext = decrypt_data(e["encrypted_data"], master)
+                new_encrypted = encrypt_with_key(plaintext, key)
+                conn.execute("UPDATE entries SET encrypted_data=? WHERE id=?", (new_encrypted, e["id"]))
+            except Exception:
+                pass
+        conn.commit()
+
 # ── Routes ────────────────────────────────────────────────────────────
 
 @bp.route("/")
@@ -106,10 +137,11 @@ def setup():
     conn = get_db()
     conn.execute("INSERT INTO config (key, value) VALUES (?, ?)", ("master_hash", hashed))
     conn.commit()
-    conn.close()
     session.permanent = False
     session["authenticated"] = True
     session["master"] = master
+    setup_entry_key(master, conn)
+    conn.close()
     return jsonify({"ok": True})
 
 @bp.route("/api/login", methods=["POST"])
@@ -140,6 +172,9 @@ def login():
     session.permanent = False
     session["authenticated"] = True
     session["master"] = master
+    conn = get_db()
+    setup_entry_key(master, conn)
+    conn.close()
     return jsonify({"ok": True})
 
 @bp.route("/api/logout", methods=["POST"])
@@ -217,11 +252,11 @@ def list_entries():
         ORDER BY e.updated_at DESC
     """).fetchall()
     conn.close()
-    master = session.get("master")
+    key = get_entry_key()
     results = []
     for r in rows:
         try:
-            decrypted = json.loads(decrypt_data(r["encrypted_data"], master))
+            decrypted = json.loads(decrypt_with_key(r["encrypted_data"], key))
         except Exception:
             decrypted = {}
         results.append({
@@ -246,8 +281,8 @@ def create_entry():
     folder_id = body.get("folder_id")
     if not title:
         return jsonify({"error": "Title required"}), 400
-    master = session.get("master")
-    encrypted = encrypt_data(json.dumps(data), master)
+    key = get_entry_key()
+    encrypted = encrypt_with_key(json.dumps(data), key)
     conn = get_db()
     cur = conn.execute(
         "INSERT INTO entries (type, title, encrypted_data, folder_id) VALUES (?, ?, ?, ?)",
@@ -255,8 +290,16 @@ def create_entry():
     )
     conn.commit()
     eid = cur.lastrowid
+    row = conn.execute("""
+        SELECT e.id, e.type, e.title, e.folder_id, e.created_at, e.updated_at, f.name as folder_name
+        FROM entries e LEFT JOIN folders f ON e.folder_id = f.id WHERE e.id=?
+    """, (eid,)).fetchone()
     conn.close()
-    return jsonify({"id": eid, "ok": True})
+    return jsonify({"id": eid, "ok": True, "entry": {
+        "id": row["id"], "type": row["type"], "title": row["title"],
+        "data": data, "folder_id": row["folder_id"], "folder_name": row["folder_name"],
+        "created_at": row["created_at"], "updated_at": row["updated_at"],
+    }})
 
 @bp.route("/api/entries/<int:eid>", methods=["PUT"])
 @login_required
@@ -267,16 +310,24 @@ def update_entry(eid):
     folder_id = body.get("folder_id")
     if not title:
         return jsonify({"error": "Title required"}), 400
-    master = session.get("master")
-    encrypted = encrypt_data(json.dumps(data), master)
+    key = get_entry_key()
+    encrypted = encrypt_with_key(json.dumps(data), key)
     conn = get_db()
     conn.execute(
         "UPDATE entries SET title=?, encrypted_data=?, folder_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
         (title, encrypted, folder_id, eid)
     )
     conn.commit()
+    row = conn.execute("""
+        SELECT e.id, e.type, e.title, e.folder_id, e.created_at, e.updated_at, f.name as folder_name
+        FROM entries e LEFT JOIN folders f ON e.folder_id = f.id WHERE e.id=?
+    """, (eid,)).fetchone()
     conn.close()
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "entry": {
+        "id": row["id"], "type": row["type"], "title": row["title"],
+        "data": data, "folder_id": row["folder_id"], "folder_name": row["folder_name"],
+        "created_at": row["created_at"], "updated_at": row["updated_at"],
+    }})
 
 @bp.route("/api/entries/<int:eid>", methods=["DELETE"])
 @login_required
@@ -350,11 +401,11 @@ def export_vault():
     folders_rows = conn.execute("SELECT id, name, icon, color FROM folders ORDER BY name").fetchall()
     conn.close()
 
-    session_master = session.get("master")
+    key = get_entry_key()
     entries_data = []
     for r in entries_rows:
         try:
-            decrypted = json.loads(decrypt_data(r["encrypted_data"], session_master))
+            decrypted = json.loads(decrypt_with_key(r["encrypted_data"], key))
         except Exception:
             decrypted = {}
         entries_data.append({
@@ -485,11 +536,11 @@ def import_vault():
                 pass
 
     # Import entries
-    session_master = session.get("master")
+    key = get_entry_key()
     imported = 0
     for e in imp_entries:
         folder_id = folder_map.get(e.get("folder_name")) if e.get("folder_name") else None
-        encrypted = encrypt_data(json.dumps(e["data"]), session_master)
+        encrypted = encrypt_with_key(json.dumps(e["data"]), key)
         conn.execute(
             "INSERT INTO entries (type, title, encrypted_data, folder_id) VALUES (?, ?, ?, ?)",
             (e["type"], e["title"], encrypted, folder_id)
