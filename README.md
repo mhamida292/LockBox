@@ -18,6 +18,8 @@ A self-hosted password vault built for simplicity. One Docker container, one mas
 - Rate limiting (5 attempts, 15 min lockout)
 - Auto-lock timeout (configurable: 15 min, 30 min, 1 hour, or never)
 - Mobile-friendly with PWA support (home screen icon)
+- Export encrypted backup (.enc) or plain CSV
+- Import from Lockbox, Bitwarden, Chrome, or LastPass
 - Settings panel with clear-all-data option
 
 ## Quick Start
@@ -59,7 +61,9 @@ Open `http://your-server-ip:8743` and set your master password.
 
 ## Backup
 
-Your vault is a single SQLite file inside the Docker volume:
+**In-app:** Settings → Export Backup creates an AES-256 encrypted `.enc` file protected with a backup password you choose. Restore it via Settings → Import.
+
+**Manual:** Your vault is a single SQLite file inside the Docker volume:
 
 ```bash
 docker cp lockbox:/data/vault.db ./vault-backup.db
