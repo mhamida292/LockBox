@@ -1,11 +1,15 @@
 {
-  "manifest_version": 3,
+  "manifest_version": 2,
   "name": "Lockbox",
   "version": "1.0.0",
   "description": "Auto-fill passwords from your self-hosted Lockbox vault",
-  "permissions": ["activeTab", "storage"],
-  "host_permissions": ["*://*/*"],
-  "action": {
+  "permissions": ["activeTab", "storage", "*://*/*"],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "lockbox@mhamida292"
+    }
+  },
+  "browser_action": {
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon-16.png",
@@ -19,7 +23,7 @@
     "128": "icons/icon-128.png"
   },
   "background": {
-    "service_worker": "background.js"
+    "scripts": ["background.js"]
   },
   "content_scripts": [
     {
