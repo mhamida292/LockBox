@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+:root {
+  --bg: #07080a; --surface: #0e1015; --surface2: #151820;
+  --border: #232733; --border-hover: #333846;
+  --text: #d4d7e0; --text-dim: #7b819a; --text-muted: #4e5370;
+  --accent: #6c8cff; --accent-hover: #8da6ff;
+  --accent-glow: rgba(108,140,255,0.1);
+  --danger: #ff5c6a; --success: #3dd68c;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  width: 320px; min-height: 200px; max-height: 500px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg); color: var(--text); font-size: 13px;
+  overflow-y: auto;
+}
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-bottom: 1px solid var(--border);
+  background: var(--surface); position: sticky; top: 0; z-index: 10;
+}
+.logo { font-size: 12px; font-weight: 700; letter-spacing: 4px; color: var(--accent); text-transform: uppercase; }
+.hbtn {
+  background: none; border: 1px solid var(--border); color: var(--text-muted);
+  width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 12px;
+  display: flex; align-items: center; justify-content: center; transition: all .15s;
+}
+.hbtn:hover { border-color: var(--border-hover); color: var(--text-dim); }
+.hbtn.dng:hover { border-color: var(--danger); color: var(--danger); }
+
+/* Setup / Login */
+.screen { padding: 20px 16px; }
+.screen h3 { font-size: 12px; font-weight: 600; color: var(--text-dim); margin-bottom: 12px; letter-spacing: 1px; text-transform: uppercase; }
+.field { margin-bottom: 10px; }
+.field label { display: block; font-size: 10px; font-weight: 600; color: var(--text-muted); margin-bottom: 5px; letter-spacing: 1px; text-transform: uppercase; }
+.field input {
+  width: 100%; padding: 10px 12px; background: var(--surface);
+  border: 1.5px solid var(--border); border-radius: 8px;
+  color: var(--text); font-size: 13px; outline: none; transition: all .2s;
+}
+.field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.field input::placeholder { color: var(--text-muted); }
+.btn {
+  width: 100%; padding: 10px; margin-top: 6px;
+  background: var(--accent); color: #fff; border: none; border-radius: 8px;
+  font-size: 12px; font-weight: 600; cursor: pointer; transition: all .2s;
+}
+.btn:hover { background: var(--accent-hover); }
+.err { color: var(--danger); font-size: 11px; margin-top: 8px; min-height: 16px; }
+
+/* Entry list */
+.search {
+  padding: 10px 16px; border-bottom: 1px solid var(--border);
+  background: var(--surface); position: sticky; top: 49px; z-index: 9;
+}
+.search input {
+  width: 100%; padding: 8px 10px; background: var(--bg);
+  border: 1.5px solid var(--border); border-radius: 8px;
+  color: var(--text); font-size: 12px; outline: none; transition: all .2s;
+}
+.search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.search input::placeholder { color: var(--text-muted); }
+
+.match-label {
+  padding: 8px 16px 4px; font-size: 10px; font-weight: 600;
+  color: var(--accent); letter-spacing: 1px; text-transform: uppercase;
+}
+
+.entry {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px; cursor: pointer; transition: all .12s;
+  border-bottom: 1px solid var(--border);
+}
+.entry:hover { background: var(--surface2); }
+.entry:active { background: var(--accent-glow); }
+.e-icon {
+  width: 32px; height: 32px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface2); border: 1px solid var(--border);
+  font-size: 14px; flex-shrink: 0; color: var(--accent);
+}
+.e-info { flex: 1; min-width: 0; }
+.e-title { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.e-meta { font-size: 11px; color: var(--text-muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.e-fill {
+  background: var(--accent-glow); border: 1px solid var(--accent);
+  color: var(--accent); padding: 5px 10px; border-radius: 6px;
+  font-size: 10px; font-weight: 600; cursor: pointer; transition: all .15s;
+  flex-shrink: 0;
+}
+.e-fill:hover { background: var(--accent); color: #fff; }
+
+.empty { padding: 30px 16px; text-align: center; color: var(--text-muted); font-size: 12px; }
+.status { padding: 6px 16px; font-size: 10px; color: var(--text-muted); text-align: center; border-top: 1px solid var(--border); }
+
+.hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">Lockbox</div>
+  <div style="display:flex;gap:4px" id="headerActions"></div>
+</div>
+
+<!-- Setup screen -->
+<div class="screen" id="setupScreen">
+  <h3>Connect to Vault</h3>
+  <div class="field">
+    <label>Server URL</label>
+    <input type="text" id="serverUrl" placeholder="http://100.x.x.x:8743">
+  </div>
+  <div class="field">
+    <label>Master Password</label>
+    <input type="password" id="masterPw" placeholder="Enter master password">
+  </div>
+  <button class="btn" id="connectBtn">Connect</button>
+  <div class="err" id="setupErr"></div>
+</div>
+
+<!-- Main screen -->
+<div class="hidden" id="mainScreen">
+  <div class="search">
+    <input type="text" id="searchInput" placeholder="Search vault...">
+  </div>
+  <div id="matchSection"></div>
+  <div id="entryList"></div>
+  <div class="status" id="statusBar"></div>
+</div>
+
+<script src="popup.js"></script>
+</body>
+</html>

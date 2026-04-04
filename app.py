@@ -15,7 +15,31 @@ app.config['SESSION_PERMANENT'] = False
 def add_headers(response):
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     response.headers['Pragma'] = 'no-cache'
+    # CORS for browser extension
+    origin = None
+    from flask import request
+    req_origin = request.headers.get('Origin', '')
+    if req_origin.startswith('chrome-extension://') or req_origin.startswith('moz-extension://'):
+        origin = req_origin
+    if origin:
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
     return response
+
+@app.before_request
+def handle_preflight():
+    from flask import request, make_response
+    if request.method == 'OPTIONS':
+        resp = make_response()
+        origin = request.headers.get('Origin', '')
+        if origin.startswith('chrome-extension://') or origin.startswith('moz-extension://'):
+            resp.headers['Access-Control-Allow-Origin'] = origin
+            resp.headers['Access-Control-Allow-Credentials'] = 'true'
+            resp.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+            resp.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        return resp
 
 app.register_blueprint(bp)
 init_db()
