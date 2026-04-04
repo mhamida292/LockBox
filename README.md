@@ -8,12 +8,15 @@ A self-hosted password vault built for simplicity. One Docker container, one mas
 - **Argon2** master password hashing
 - **PBKDF2** key derivation (600,000 iterations)
 - Logins (username, password, URL) and secure notes
-- Folders and search
+- Folders with customizable icons (20 options) and colors (9 swatches)
+- Inline entry editing — no modals, edit entries right in the list
+- Search and sort (Recent, Newest, A→Z, Z→A)
 - Built-in password generator (configurable length, symbols)
-- Copy username / password to clipboard
-- 4 themes — Midnight, Ember, Arctic, Moss
+- Password strength indicator
+- Copy username / password to clipboard, open URL directly
+- 8 themes — Midnight, Ember, Arctic, Moss, Sakura, Slate, Amethyst, Lavender
 - Rate limiting (5 attempts, 15 min lockout)
-- Auto-lock on tab close
+- Auto-lock timeout (configurable: 15 min, 30 min, 1 hour, or never)
 - Mobile-friendly with PWA support (home screen icon)
 - Settings panel with clear-all-data option
 
