@@ -2,10 +2,13 @@ import json
 import string
 import secrets
 import sqlite3
+import csv
+import io
 from time import time
+from datetime import datetime
 from functools import wraps
 
-from flask import Blueprint, render_template, request, jsonify, session
+from flask import Blueprint, render_template, request, jsonify, session, make_response
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 
@@ -314,6 +317,187 @@ def generate_password():
         pw_list[i], pw_list[j] = pw_list[j], pw_list[i]
 
     return jsonify({"password": "".join(pw_list)})
+
+# ── Export ────────────────────────────────────────────────────────────
+
+@bp.route("/api/export", methods=["POST"])
+@login_required
+def export_vault():
+    body = request.json
+    master = body.get("master_password", "")
+    fmt = body.get("format", "encrypted")
+    backup_pw = body.get("backup_password", "")
+
+    # Verify master password
+    conn = get_db()
+    row = conn.execute("SELECT value FROM config WHERE key='master_hash'").fetchone()
+    if not row:
+        conn.close()
+        return jsonify({"error": "Not set up"}), 400
+    try:
+        ph.verify(row["value"], master)
+    except VerifyMismatchError:
+        conn.close()
+        return jsonify({"error": "Wrong master password"}), 401
+
+    # Fetch and decrypt all entries
+    entries_rows = conn.execute("""
+        SELECT e.id, e.type, e.title, e.encrypted_data, e.folder_id,
+               e.created_at, e.updated_at, f.name as folder_name
+        FROM entries e LEFT JOIN folders f ON e.folder_id = f.id
+        ORDER BY e.title
+    """).fetchall()
+    folders_rows = conn.execute("SELECT id, name, icon, color FROM folders ORDER BY name").fetchall()
+    conn.close()
+
+    session_master = session.get("master")
+    entries_data = []
+    for r in entries_rows:
+        try:
+            decrypted = json.loads(decrypt_data(r["encrypted_data"], session_master))
+        except Exception:
+            decrypted = {}
+        entries_data.append({
+            "type": r["type"],
+            "title": r["title"],
+            "data": decrypted,
+            "folder_name": r["folder_name"],
+            "created_at": r["created_at"],
+            "updated_at": r["updated_at"],
+        })
+    folders_data = [{"name": f["name"], "icon": f["icon"], "color": f["color"]} for f in folders_rows]
+
+    date_str = datetime.now().strftime("%Y-%m-%d")
+
+    if fmt == "csv":
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["title", "type", "username", "password", "url", "notes", "folder_name"])
+        for e in entries_data:
+            writer.writerow([
+                e["title"], e["type"],
+                e["data"].get("username", ""), e["data"].get("password", ""),
+                e["data"].get("url", ""), e["data"].get("notes", ""),
+                e["folder_name"] or ""
+            ])
+        resp = make_response(output.getvalue())
+        resp.headers["Content-Type"] = "text/csv"
+        resp.headers["Content-Disposition"] = f"attachment; filename=lockbox-export-{date_str}.csv"
+        return resp
+
+    # Encrypted backup
+    if not backup_pw or len(backup_pw) < 8:
+        return jsonify({"error": "Backup password must be at least 8 characters"}), 400
+    payload = json.dumps({
+        "version": 1,
+        "exported_at": datetime.now().isoformat(),
+        "folders": folders_data,
+        "entries": entries_data,
+    })
+    encrypted = encrypt_data(payload, backup_pw)
+    resp = make_response(encrypted)
+    resp.headers["Content-Type"] = "application/octet-stream"
+    resp.headers["Content-Disposition"] = f"attachment; filename=lockbox-backup-{date_str}.enc"
+    return resp
+
+# ── Import ────────────────────────────────────────────────────────────
+
+@bp.route("/api/import", methods=["POST"])
+@login_required
+def import_vault():
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+    f = request.files["file"]
+    filename = f.filename or ""
+    content = f.read().decode("utf-8")
+
+    if filename.endswith(".enc"):
+        backup_pw = request.form.get("backup_password", "")
+        if not backup_pw:
+            return jsonify({"error": "Backup password required"}), 400
+        try:
+            decrypted = decrypt_data(content.strip(), backup_pw)
+            data = json.loads(decrypted)
+        except Exception:
+            return jsonify({"error": "Decryption failed — wrong password or corrupted file"}), 400
+        imp_folders = data.get("folders", [])
+        imp_entries = data.get("entries", [])
+    elif filename.endswith(".csv"):
+        reader = csv.DictReader(io.StringIO(content))
+        headers = reader.fieldnames or []
+        imp_entries = []
+        imp_folders = []
+        folder_names_seen = set()
+        for row in reader:
+            # Detect format and normalize
+            if "login_username" in headers:  # Bitwarden
+                title = row.get("name", "")
+                username = row.get("login_username", "")
+                password = row.get("login_password", "")
+                url = row.get("login_uri", "")
+                notes = row.get("notes", "")
+                folder_name = row.get("folder", "")
+            elif "grouping" in headers:  # LastPass
+                title = row.get("name", "")
+                username = row.get("username", "")
+                password = row.get("password", "")
+                url = row.get("url", "")
+                notes = row.get("extra", "")
+                folder_name = row.get("grouping", "")
+            else:  # Lockbox native or Chrome
+                title = row.get("title") or row.get("name", "")
+                username = row.get("username", "")
+                password = row.get("password", "")
+                url = row.get("url", "")
+                notes = row.get("notes", "")
+                folder_name = row.get("folder_name") or row.get("folder", "")
+            if not title:
+                continue
+            entry_type = row.get("type", "login")
+            if entry_type not in ("login", "note"):
+                entry_type = "login"
+            imp_entries.append({
+                "type": entry_type,
+                "title": title,
+                "data": {"username": username, "password": password, "url": url, "notes": notes},
+                "folder_name": folder_name,
+            })
+            if folder_name and folder_name not in folder_names_seen:
+                folder_names_seen.add(folder_name)
+                imp_folders.append({"name": folder_name, "icon": "key", "color": ""})
+    else:
+        return jsonify({"error": "Unsupported file format. Use .enc or .csv"}), 400
+
+    # Create folders and build name→id map
+    conn = get_db()
+    existing = conn.execute("SELECT id, name FROM folders").fetchall()
+    folder_map = {r["name"]: r["id"] for r in existing}
+    new_folders = 0
+    for fo in imp_folders:
+        if fo["name"] not in folder_map:
+            try:
+                cur = conn.execute("INSERT INTO folders (name, icon, color) VALUES (?, ?, ?)",
+                                   (fo["name"], fo.get("icon", "key"), fo.get("color", "")))
+                conn.commit()
+                folder_map[fo["name"]] = cur.lastrowid
+                new_folders += 1
+            except sqlite3.IntegrityError:
+                pass
+
+    # Import entries
+    session_master = session.get("master")
+    imported = 0
+    for e in imp_entries:
+        folder_id = folder_map.get(e.get("folder_name")) if e.get("folder_name") else None
+        encrypted = encrypt_data(json.dumps(e["data"]), session_master)
+        conn.execute(
+            "INSERT INTO entries (type, title, encrypted_data, folder_id) VALUES (?, ?, ?, ?)",
+            (e["type"], e["title"], encrypted, folder_id)
+        )
+        imported += 1
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True, "imported_entries": imported, "imported_folders": new_folders})
 
 # ── Clear all data ────────────────────────────────────────────────────
 
