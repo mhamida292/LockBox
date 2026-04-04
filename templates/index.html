@@ -49,7 +49,7 @@
         </div>
         <div class="s-label">Folders</div>
         <ul class="flist" id="flist"></ul>
-        <button class="addf" onclick="newFolder()">+ New folder</button>
+        <button class="addf" onclick="openFolderModal()">+ New folder</button>
     </aside>
     <div class="main">
         <div class="toolbar">
@@ -129,6 +129,24 @@
             </div>
         </div>
         <div class="mf"><div></div><button class="bgho" onclick="closeSet()">Done</button></div>
+    </div>
+</div>
+
+<!-- Folder Modal -->
+<div class="ov" id="fOv">
+    <div class="modal">
+        <div class="mh"><div class="mt" id="fMt">New Folder</div><button class="mx" onclick="closeFolderModal()">&times;</button></div>
+        <div class="mb">
+            <div class="fg"><label class="fl">Name</label><input class="finp" id="fName" placeholder="e.g. Email, Work..."></div>
+            <div class="fg"><label class="fl">Icon</label><div class="icon-picker" id="folderIconPicker"></div></div>
+        </div>
+        <div class="mf">
+            <div></div>
+            <div style="display:flex;gap:8px">
+                <button class="bgho" onclick="closeFolderModal()">Cancel</button>
+                <button class="bpri" onclick="saveFolderModal()">Save</button>
+            </div>
+        </div>
     </div>
 </div>
 

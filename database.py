@@ -34,6 +34,12 @@ def init_db():
             FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL
         );
     """)
+    # Migrate: add icon column if it doesn't exist
+    try:
+        conn.execute("ALTER TABLE folders ADD COLUMN icon TEXT NOT NULL DEFAULT 'key'")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # Column already exists
     try:
         conn.execute("INSERT INTO folders (name) VALUES (?)", ("General",))
         conn.commit()
