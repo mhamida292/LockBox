@@ -58,6 +58,17 @@ Compatible with Chrome and Firefox (Manifest V2).
 - Matches saved entries to the current site by hostname
 - Highlights matching entries at the top of the popup
 
+## Installing the Firefox Extension
+
+A pre-signed `.xpi` is included in `extension/web-ext-artifacts/` and can be installed directly on regular Firefox — no Developer Edition needed.
+
+1. Open Firefox and go to `about:addons`
+2. Click the gear icon → **Install Add-on From File**
+3. Select the `.xpi` file from `extension/web-ext-artifacts/`
+4. Click **Add** when prompted
+
+Once installed, click the Lockbox icon in your toolbar, enter your server URL and master password to connect.
+
 ## Quick Start
 
 ```bash
