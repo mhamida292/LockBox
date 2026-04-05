@@ -72,7 +72,7 @@
 /* ── Base ────────────────────────────────────────────────────────────── */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
-  width: 350px; min-height: 200px; max-height: 500px;
+  width: 420px; min-height: 200px; max-height: 500px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--bg); color: var(--text); font-size: 13px;
   overflow-y: auto;
@@ -91,7 +91,7 @@ body {
 .logo { font-size: 12px; font-weight: 700; letter-spacing: 4px; color: var(--accent); text-transform: uppercase; }
 .hbtn {
   background: none; border: 1px solid var(--border); color: var(--text-muted);
-  width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 12px;
+  width: 34px; height: 34px; border-radius: 7px; cursor: pointer; font-size: 14px;
   display: flex; align-items: center; justify-content: center; transition: all .15s;
 }
 .hbtn:hover { border-color: var(--border-hover); color: var(--text-dim); }
@@ -109,14 +109,12 @@ body {
 /* ── Folder tabs ─────────────────────────────────────────────────────── */
 .folder-tabs {
   display: flex; gap: 4px; padding: 0 16px 10px;
-  overflow-x: auto; flex-wrap: nowrap;
-  -ms-overflow-style: none; scrollbar-width: none;
+  flex-wrap: wrap;
 }
-.folder-tabs::-webkit-scrollbar { display: none; }
 .folder-tabs:empty { display: none; }
 .ftab {
   display: flex; align-items: center; gap: 4px;
-  padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border);
+  padding: 4px 16px; border-radius: 6px; border: 1px solid var(--border);
   background: var(--surface2); color: var(--text-muted);
   font-size: 10px; font-weight: 600; cursor: pointer;
   white-space: nowrap; transition: all .15s; flex-shrink: 0;
@@ -185,10 +183,16 @@ body {
 
 /* ── Theme picker ────────────────────────────────────────────────────── */
 .theme-panel {
-  display: none; padding: 12px 16px;
-  border-bottom: 1px solid var(--border); background: var(--surface);
+  max-height: 0; overflow: hidden;
+  padding: 0 16px;
+  border-bottom: 1px solid transparent; background: var(--surface);
+  transition: max-height .25s ease, padding .25s ease, border-color .25s ease;
 }
-.theme-panel.open { display: block; }
+.theme-panel.open {
+  max-height: 200px;
+  padding: 12px 16px;
+  border-bottom-color: var(--border);
+}
 .theme-panel-title {
   font-size: 10px; font-weight: 600; color: var(--text-muted);
   letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;

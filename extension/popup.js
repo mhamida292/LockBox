@@ -123,10 +123,10 @@ function showMain() {
   $('setupScreen').classList.add('hidden');
   $('mainScreen').classList.remove('hidden');
   $('headerActions').innerHTML = `
-    <button class="hbtn" id="openVaultBtn" title="Open Vault">${iconSvg('globe', 14)}</button>
-    <button class="hbtn" id="themeBtn" title="Theme">${iconSvg('palette', 14)}</button>
+    <button class="hbtn" id="openVaultBtn" title="Open Vault">${iconSvg('globe', 16)}</button>
+    <button class="hbtn" id="themeBtn" title="Theme">${iconSvg('palette', 16)}</button>
     <button class="hbtn" id="refreshBtn" title="Refresh">↻</button>
-    <button class="hbtn dng" id="lockBtn" title="Lock">${iconSvg('lock', 14)}</button>
+    <button class="hbtn dng" id="lockBtn" title="Lock">${iconSvg('lock', 16)}</button>
   `;
   $('openVaultBtn').addEventListener('click', () => {
     chrome.storage.local.get(['serverUrl'], (data) => {

@@ -1,5 +1,17 @@
 // Content script — fills login forms and injects inline fill buttons
 
+// ── Skip injection on the LockBox app itself ─────────────────────────
+
+chrome.storage.local.get(['serverUrl'], (data) => {
+  if (data.serverUrl) {
+    try {
+      const serverOrigin = new URL(data.serverUrl).origin;
+      if (window.location.origin === serverOrigin) return;
+    } catch {}
+  }
+  init();
+});
+
 // ── Fill on command from popup/background ────────────────────────────
 
 chrome.runtime.onMessage.addListener((msg) => {
@@ -279,13 +291,16 @@ function checkPendingSave() {
         );
         if (alreadyExists) return;
 
-        showSavePrompt(pending.username, pending.password, pending.url, pending.origin, pending.title);
+          chrome.runtime.sendMessage({ type: 'getFolders' }, (folderRes) => {
+            const folders = (folderRes && folderRes.folders) || [];
+            showSavePrompt(pending.username, pending.password, pending.url, pending.origin, pending.title, folders);
+          });
       });
     });
   });
 }
 
-function showSavePrompt(username, password, url, origin, siteTitle) {
+function showSavePrompt(username, password, url, origin, siteTitle, folders) {
   // Remove any existing prompt
   const existing = document.querySelector('.lockbox-save-host');
   if (existing) existing.remove();
@@ -305,8 +320,8 @@ function showSavePrompt(username, password, url, origin, siteTitle) {
       }
       .lb-save {
         background: #0e1015; border: 1px solid #232733;
-        border-radius: 10px; padding: 10px 12px;
-        width: 240px;
+        border-radius: 10px; padding: 16px 16px;
+        width: 420px;
         box-shadow: 0 8px 24px rgba(0,0,0,0.5);
         animation: slideIn 0.2s ease-out;
       }
@@ -330,21 +345,22 @@ function showSavePrompt(username, password, url, origin, siteTitle) {
         font-size: 9px; color: #4e5370;
       }
       .lb-save-input {
-        width: 100%; padding: 5px 8px; margin-bottom: 6px;
+        width: 100%; padding: 8px 10px; margin-bottom: 8px;
         background: #07080a; border: 1px solid #232733; border-radius: 5px;
-        color: #d4d7e0; font-size: 11px; font-family: inherit;
+        color: #d4d7e0; font-size: 12px; font-family: inherit;
         outline: none; transition: border-color 0.15s;
+        box-sizing: border-box;
       }
       .lb-save-input:focus { border-color: #6c8cff; }
-      .lb-row { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
-      .lb-row-label { font-size: 9px; color: #4e5370; width: 32px; flex-shrink: 0; }
-      .lb-row-val { font-size: 10px; color: #7b819a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .lb-row { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
+      .lb-row-label { font-size: 11px; color: #4e5370; width: 36px; flex-shrink: 0; }
+      .lb-row-val { font-size: 12px; color: #7b819a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .lb-save-actions {
         display: flex; gap: 6px;
       }
       .lb-save-btn {
-        flex: 1; padding: 5px; border-radius: 5px;
-        font-size: 10px; font-weight: 600; cursor: pointer;
+        flex: 1; padding: 9px; border-radius: 5px;
+        font-size: 12px; font-weight: 600; cursor: pointer;
         border: none; transition: all 0.15s; font-family: inherit;
       }
       .lb-save-btn.primary { background: #6c8cff; color: #fff; }
@@ -353,6 +369,13 @@ function showSavePrompt(username, password, url, origin, siteTitle) {
       .lb-save-btn.secondary:hover { border-color: #333846; color: #d4d7e0; }
       .lb-save-btn.success { background: rgba(61,214,140,0.15); color: #3dd68c; border: 1px solid #3dd68c; }
       .lb-save-btn.error { background: rgba(255,92,106,0.15); color: #ff5c6a; border: 1px solid #ff5c6a; }
+      .lb-save-select {
+        width: 100%; padding: 8px 10px; margin-bottom: 8px;
+        background: #07080a; border: 1px solid #232733; border-radius: 5px;
+        color: #d4d7e0; font-size: 12px; font-family: inherit;
+        outline: none; cursor: pointer; box-sizing: border-box;
+      }
+      .lb-save-select:focus { border-color: #6c8cff; }
     </style>
     <div class="lb-save">
       <div class="lb-save-header">
@@ -371,6 +394,11 @@ function showSavePrompt(username, password, url, origin, siteTitle) {
         <span class="lb-row-label">User</span>
         <span class="lb-row-val">${escHtml(username || 'none')}</span>
       </div>
+      ${folders.length ? `
+      <select class="lb-save-select" id="lbFolder">
+        <option value="">No category</option>
+        ${folders.map(f => `<option value="${f.id}">${escHtml(f.name)}</option>`).join('')}
+      </select>` : ''}
       <div class="lb-save-actions">
         <button class="lb-save-btn secondary" id="lbDismiss">Dismiss</button>
         <button class="lb-save-btn primary" id="lbSave">Save</button>
@@ -385,12 +413,15 @@ function showSavePrompt(username, password, url, origin, siteTitle) {
   saveBtn.addEventListener('click', () => {
     saveBtn.textContent = 'Saving...';
     saveBtn.disabled = true;
+    const folderSelect = shadow.querySelector('#lbFolder');
+    const folderId = folderSelect ? (folderSelect.value ? parseInt(folderSelect.value) : null) : null;
     chrome.runtime.sendMessage({
       type: 'saveEntry',
       title: titleInput.value || siteTitle,
       username,
       password,
       url: origin || window.location.origin,
+      folder_id: folderId,
     }, (res) => {
       if (res && res.ok) {
         saveBtn.textContent = 'Saved!';
@@ -424,22 +455,22 @@ function escAttr(s) {
 
 // ── Observe for dynamically added fields ────────────────────────────
 
-const observer = new MutationObserver(() => injectButtons());
-observer.observe(document.documentElement, { childList: true, subtree: true });
+function init() {
+  const observer = new MutationObserver(() => injectButtons());
+  observer.observe(document.documentElement, { childList: true, subtree: true });
 
-// Initial injection
-injectButtons();
-watchFormSubmissions();
-checkPendingSave();
+  injectButtons();
+  watchFormSubmissions();
+  checkPendingSave();
 
-// Re-check periodically for SPA navigations
-let lastUrl = location.href;
-setInterval(() => {
-  if (location.href !== lastUrl) {
-    lastUrl = location.href;
-    injectButtons();
-  }
-}, 1500);
+  let lastUrl = location.href;
+  setInterval(() => {
+    if (location.href !== lastUrl) {
+      lastUrl = location.href;
+      injectButtons();
+    }
+  }, 1500);
+}
 
 // ── Form filling ────────────────────────────────────────────────────
 

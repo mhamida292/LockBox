@@ -118,6 +118,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           body: JSON.stringify({
             type: 'login',
             title: msg.title,
+            folder_id: msg.folder_id || null,
             data: {
               username: msg.username || '',
               password: msg.password || '',
@@ -136,6 +137,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ ok: false, error: 'Cannot reach server' });
       }
     })();
+    return true;
+  }
+
+  if (msg.type === 'getFolders') {
+    sendResponse({ folders: cachedFolders });
     return true;
   }
 
