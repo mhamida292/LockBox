@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <style>
-:root {
+/* ── Themes ─────────────────────────────────────────────────────────── */
+:root, [data-theme="midnight"] {
   --bg: #07080a; --surface: #0e1015; --surface2: #151820;
   --border: #232733; --border-hover: #333846;
   --text: #d4d7e0; --text-dim: #7b819a; --text-muted: #4e5370;
@@ -11,17 +12,81 @@
   --accent-glow: rgba(108,140,255,0.1);
   --danger: #ff5c6a; --success: #3dd68c;
 }
+[data-theme="ember"] {
+  --bg: #0c0907; --surface: #14100c; --surface2: #1d1712;
+  --border: #332a21; --border-hover: #4a3d30;
+  --text: #e0d5c8; --text-dim: #9a8a78; --text-muted: #6b5c4d;
+  --accent: #e8853a; --accent-hover: #f09d58;
+  --accent-glow: rgba(232,133,58,0.1);
+  --danger: #ef4444; --success: #4ade80;
+}
+[data-theme="arctic"] {
+  --bg: #f4f6f9; --surface: #ffffff; --surface2: #edf0f5;
+  --border: #d1d7e2; --border-hover: #b8c0cf;
+  --text: #1a1f2e; --text-dim: #5c6478; --text-muted: #8b93a5;
+  --accent: #2563eb; --accent-hover: #3b82f6;
+  --accent-glow: rgba(37,99,235,0.08);
+  --danger: #dc2626; --success: #16a34a;
+}
+[data-theme="moss"] {
+  --bg: #080b09; --surface: #0d120f; --surface2: #141a16;
+  --border: #243028; --border-hover: #354538;
+  --text: #c8d8ce; --text-dim: #6e8a76; --text-muted: #4a6350;
+  --accent: #5cb87a; --accent-hover: #78d096;
+  --accent-glow: rgba(92,184,122,0.1);
+  --danger: #ef4444; --success: #5cb87a;
+}
+[data-theme="sakura"] {
+  --bg: #fdf6f8; --surface: #ffffff; --surface2: #fceef2;
+  --border: #ebc9d4; --border-hover: #d9a8b8;
+  --text: #2e1a22; --text-dim: #7a5567; --text-muted: #a88795;
+  --accent: #e06088; --accent-hover: #e8809f;
+  --accent-glow: rgba(224,96,136,0.08);
+  --danger: #dc2626; --success: #16a34a;
+}
+[data-theme="slate"] {
+  --bg: #0f1114; --surface: #16181c; --surface2: #1d2024;
+  --border: #2e3238; --border-hover: #3e4349;
+  --text: #c8cbcf; --text-dim: #82868c; --text-muted: #5a5e64;
+  --accent: #8b929e; --accent-hover: #a5abb5;
+  --accent-glow: rgba(139,146,158,0.1);
+  --danger: #ef4444; --success: #4ade80;
+}
+[data-theme="amethyst"] {
+  --bg: #0a080e; --surface: #110e18; --surface2: #191522;
+  --border: #2d2640; --border-hover: #413858;
+  --text: #d4cee0; --text-dim: #8a80a4; --text-muted: #5e5478;
+  --accent: #a07ce8; --accent-hover: #b69af0;
+  --accent-glow: rgba(160,124,232,0.1);
+  --danger: #ff5c6a; --success: #3dd68c;
+}
+[data-theme="lavender"] {
+  --bg: #f5f3fa; --surface: #ffffff; --surface2: #eeeaf6;
+  --border: #d1c8e2; --border-hover: #b8acd0;
+  --text: #1e1a2e; --text-dim: #5c5478; --text-muted: #8b83a5;
+  --accent: #7c5cbf; --accent-hover: #9478d0;
+  --accent-glow: rgba(124,92,191,0.08);
+  --danger: #dc2626; --success: #16a34a;
+}
+
+/* ── Base ────────────────────────────────────────────────────────────── */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
-  width: 320px; min-height: 200px; max-height: 500px;
+  width: 350px; min-height: 200px; max-height: 500px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--bg); color: var(--text); font-size: 13px;
   overflow-y: auto;
 }
+
+/* ── Top bar (header + search + tabs — single sticky block) ────────── */
+.top-bar {
+  position: sticky; top: 0; z-index: 10;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
 .header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 16px; border-bottom: 1px solid var(--border);
-  background: var(--surface); position: sticky; top: 0; z-index: 10;
+  padding: 12px 16px;
 }
 .logo { font-size: 12px; font-weight: 700; letter-spacing: 4px; color: var(--accent); text-transform: uppercase; }
 .hbtn {
@@ -32,7 +97,34 @@ body {
 .hbtn:hover { border-color: var(--border-hover); color: var(--text-dim); }
 .hbtn.dng:hover { border-color: var(--danger); color: var(--danger); }
 
-/* Setup / Login */
+.search-wrap { padding: 0 16px 10px; }
+.search-wrap input {
+  width: 100%; padding: 8px 10px; background: var(--bg);
+  border: 1.5px solid var(--border); border-radius: 8px;
+  color: var(--text); font-size: 12px; outline: none; transition: all .2s;
+}
+.search-wrap input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.search-wrap input::placeholder { color: var(--text-muted); }
+
+/* ── Folder tabs ─────────────────────────────────────────────────────── */
+.folder-tabs {
+  display: flex; gap: 4px; padding: 0 16px 10px;
+  overflow-x: auto; flex-wrap: nowrap;
+  -ms-overflow-style: none; scrollbar-width: none;
+}
+.folder-tabs::-webkit-scrollbar { display: none; }
+.folder-tabs:empty { display: none; }
+.ftab {
+  display: flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--text-muted);
+  font-size: 10px; font-weight: 600; cursor: pointer;
+  white-space: nowrap; transition: all .15s; flex-shrink: 0;
+}
+.ftab:hover { border-color: var(--border-hover); color: var(--text-dim); }
+.ftab.on { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+
+/* ── Setup / Login ───────────────────────────────────────────────────── */
 .screen { padding: 20px 16px; }
 .screen h3 { font-size: 12px; font-weight: 600; color: var(--text-dim); margin-bottom: 12px; letter-spacing: 1px; text-transform: uppercase; }
 .field { margin-bottom: 10px; }
@@ -52,24 +144,11 @@ body {
 .btn:hover { background: var(--accent-hover); }
 .err { color: var(--danger); font-size: 11px; margin-top: 8px; min-height: 16px; }
 
-/* Entry list */
-.search {
-  padding: 10px 16px; border-bottom: 1px solid var(--border);
-  background: var(--surface); position: sticky; top: 49px; z-index: 9;
-}
-.search input {
-  width: 100%; padding: 8px 10px; background: var(--bg);
-  border: 1.5px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 12px; outline: none; transition: all .2s;
-}
-.search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
-.search input::placeholder { color: var(--text-muted); }
-
+/* ── Entries ──────────────────────────────────────────────────────────── */
 .match-label {
   padding: 8px 16px 4px; font-size: 10px; font-weight: 600;
   color: var(--accent); letter-spacing: 1px; text-transform: uppercase;
 }
-
 .entry {
   display: flex; align-items: center; gap: 10px;
   padding: 10px 16px; cursor: pointer; transition: all .12s;
@@ -86,25 +165,58 @@ body {
 .e-info { flex: 1; min-width: 0; }
 .e-title { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .e-meta { font-size: 11px; color: var(--text-muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.e-fill {
-  background: var(--accent-glow); border: 1px solid var(--accent);
-  color: var(--accent); padding: 5px 10px; border-radius: 6px;
-  font-size: 10px; font-weight: 600; cursor: pointer; transition: all .15s;
-  flex-shrink: 0;
+/* Inline action buttons */
+.e-acts {
+  display: flex; gap: 3px; flex-shrink: 0; margin-left: auto;
 }
-.e-fill:hover { background: var(--accent); color: #fff; }
+.e-act {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 6px;
+  border: 1px solid var(--border); background: none;
+  color: var(--text-muted); cursor: pointer;
+  transition: all .15s; padding: 0;
+}
+.e-act:hover { border-color: var(--border-hover); color: var(--text-dim); background: var(--surface2); }
+.e-act-fill { border-color: var(--accent); color: var(--accent); }
+.e-act-fill:hover { background: var(--accent); color: #fff; }
 
 .empty { padding: 30px 16px; text-align: center; color: var(--text-muted); font-size: 12px; }
 .status { padding: 6px 16px; font-size: 10px; color: var(--text-muted); text-align: center; border-top: 1px solid var(--border); }
+
+/* ── Theme picker ────────────────────────────────────────────────────── */
+.theme-panel {
+  display: none; padding: 12px 16px;
+  border-bottom: 1px solid var(--border); background: var(--surface);
+}
+.theme-panel.open { display: block; }
+.theme-panel-title {
+  font-size: 10px; font-weight: 600; color: var(--text-muted);
+  letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;
+}
+.theme-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+}
+.theme-swatch {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 8px 4px; border-radius: 8px; border: 1.5px solid var(--border);
+  background: var(--surface2); cursor: pointer; transition: all .15s;
+}
+.theme-swatch:hover { border-color: var(--border-hover); }
+.theme-swatch.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+.swatch-dots { display: flex; gap: 3px; }
+.swatch-dot { width: 8px; height: 8px; border-radius: 50%; }
+.swatch-name { font-size: 9px; font-weight: 600; color: var(--text-dim); }
 
 .hidden { display: none; }
 </style>
 </head>
 <body>
 
-<div class="header">
-  <div class="logo">Lockbox</div>
-  <div style="display:flex;gap:4px" id="headerActions"></div>
+<div class="top-bar" id="topBar">
+  <div class="header">
+    <div class="logo">Lockbox</div>
+    <div style="display:flex;gap:4px" id="headerActions"></div>
+  </div>
 </div>
 
 <!-- Setup screen -->
@@ -124,10 +236,11 @@ body {
 
 <!-- Main screen -->
 <div class="hidden" id="mainScreen">
-  <div class="search">
-    <input type="text" id="searchInput" placeholder="Search vault...">
-  </div>
   <div id="matchSection"></div>
+  <div class="theme-panel" id="themePanel">
+    <div class="theme-panel-title">Theme</div>
+    <div class="theme-grid" id="themeGrid"></div>
+  </div>
   <div id="entryList"></div>
   <div class="status" id="statusBar"></div>
 </div>
