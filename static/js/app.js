@@ -369,11 +369,12 @@ function render(){
     const folder=folders.find(f=>f.id===e.folder_id);
     const ic=iconSvg(folder?.icon||(e.type==='login'?'key':'filetext'),20,folder?.color||null);
     const meta=e.type==='login'?(e.data.username||e.data.url||'No username'):'Secure note';
-    const urlBtn=e.type==='login'&&e.data.url?`<button class="ecopy" onclick="event.stopPropagation();goToUrl(${e.id})" title="Open URL">🔗</button>`:'';
+    const urlBtn=e.type==='login'&&e.data.url?`<button class="ecopy ecopy-url" onclick="event.stopPropagation();goToUrl(${e.id})" title="Open URL">${iconSvg('globe',14)}</button>`:'';
     const btns=e.type==='login'
-      ?`<button class="ecopy" onclick="event.stopPropagation();cpField(${e.id},'username')" title="Copy username">👤</button><button class="ecopy" onclick="event.stopPropagation();cpField(${e.id},'password')" title="Copy password">🔑</button>${urlBtn}`
-      :`<button class="ecopy" onclick="event.stopPropagation();cpField(${e.id},'notes')" title="Copy note">📋</button>`;
-    return`<div class="ecard" data-type="${e.type}" style="animation-delay:${i*.03}s" onclick="openEdit(${e.id})"><div class="eicon">${ic}</div><div class="einfo"><div class="etitle">${esc(e.title)}</div><div class="emeta">${esc(meta)}</div></div><div class="ecopy-group">${btns}</div></div>`;
+      ?`<button class="ecopy ecopy-user" onclick="event.stopPropagation();cpField(${e.id},'username')" title="Copy username">${iconSvg('user',14)}</button><button class="ecopy ecopy-pass" onclick="event.stopPropagation();cpField(${e.id},'password')" title="Copy password">${iconSvg('lock',14)}</button>${urlBtn}`
+      :`<button class="ecopy ecopy-note" onclick="event.stopPropagation();cpField(${e.id},'notes')" title="Copy note">${iconSvg('filetext',14)}</button>`;
+    const cardAccent=folder?.color||'var(--accent)';
+    return`<div class="ecard" data-type="${e.type}" style="animation-delay:${i*.03}s;--card-accent:${cardAccent}" onclick="openEdit(${e.id})"><div class="eicon">${ic}</div><div class="einfo"><div class="etitle">${esc(e.title)}</div><div class="emeta">${esc(meta)}</div></div><div class="ecopy-group">${btns}</div></div>`;
   }).join('');
 
   el.innerHTML=html;
