@@ -134,16 +134,48 @@ async function loadData(){const[f,e,t]=await Promise.all([fetch('/api/folders'),
 function openSB(){document.getElementById('sidebar').classList.add('open');document.getElementById('shade').classList.add('open')}
 function closeSB(){document.getElementById('sidebar').classList.remove('open');document.getElementById('shade').classList.remove('open')}
 
-// ── Swipe to open/close sidebar (mobile) ─────────────────────────────
+// ── Drag-to-open sidebar (mobile) ────────────────────────────────────
 (function(){
-  let x0=0,y0=0;
-  const EDGE=40,THRESH=60;
-  document.addEventListener('touchstart',e=>{x0=e.touches[0].clientX;y0=e.touches[0].clientY},{passive:true});
+  const W=280,EDGE=40,SNAP=0.35;
+  let active=false,horiz=false,x0=0,y0=0,sbX0=0;
+  function sb(){return document.getElementById('sidebar')}
+  function sh(){return document.getElementById('shade')}
+  function mobile(){return window.innerWidth<=768}
+
+  document.addEventListener('touchstart',e=>{
+    if(!mobile())return;
+    const t=e.touches[0];
+    x0=t.clientX;y0=t.clientY;active=false;horiz=false;
+    const open=sb().classList.contains('open');
+    if(x0<EDGE||open){sbX0=open?0:-W;active=true;}
+  },{passive:true});
+
+  document.addEventListener('touchmove',e=>{
+    if(!active)return;
+    const dx=e.touches[0].clientX-x0,dy=e.touches[0].clientY-y0;
+    if(!horiz){
+      if(Math.abs(dx)<6&&Math.abs(dy)<6)return;
+      if(Math.abs(dy)>=Math.abs(dx)){active=false;return;}
+      horiz=true;
+      sb().style.transition='none';
+      sh().style.transition='none';sh().style.display='block';
+    }
+    const newX=Math.min(0,Math.max(-W,sbX0+dx));
+    sb().style.transform=`translateX(${newX}px)`;
+    sh().style.opacity=(newX+W)/W;
+  },{passive:true});
+
   document.addEventListener('touchend',e=>{
-    const dx=e.changedTouches[0].clientX-x0,dy=e.changedTouches[0].clientY-y0;
-    if(Math.abs(dy)>Math.abs(dx)||Math.abs(dx)<THRESH)return;
-    if(dx>0&&x0<EDGE)openSB();
-    else if(dx<0)closeSB();
+    if(!active||!horiz){active=false;return;}
+    active=false;
+    const dx=e.changedTouches[0].clientX-x0;
+    sb().style.transition='';sb().style.transform='';
+    sh().style.transition='';sh().style.opacity='';sh().style.display='';
+    const wasOpen=sbX0===0;
+    if(!wasOpen&&dx>W*SNAP)openSB();
+    else if(wasOpen&&dx<-W*SNAP)closeSB();
+    else if(wasOpen)openSB();
+    else closeSB();
   },{passive:true});
 })();
 
