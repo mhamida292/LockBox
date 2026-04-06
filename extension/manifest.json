@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Lockbox",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Auto-fill passwords from your self-hosted Lockbox vault",
   "permissions": ["activeTab", "storage", "*://*/*"],
   "browser_specific_settings": {

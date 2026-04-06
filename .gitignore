@@ -5,3 +5,4 @@ __pycache__/
 .env
 vault.db
 *.db-journal
+extension/.amo-upload-uuid
