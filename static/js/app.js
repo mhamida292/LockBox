@@ -248,8 +248,7 @@ function buildEntryForm(e){
   ).join('');
 
   return `
-    <div class="ef-form">
-      <div class="ef-row ef-row-type">
+    <div class="ef-row ef-row-type">
         <div class="ef-field ef-half">
           <label class="fl">Type</label>
           <select class="fsel" id="eType" onchange="togLoginInline()">
@@ -292,14 +291,6 @@ function buildEntryForm(e){
         <label class="fl" id="nLbl">${notesLabel}</label>
         <textarea class="fta" id="eNotes" placeholder="Optional notes...">${notes}</textarea>
       </div>
-      <div class="ef-actions">
-        ${isEdit?`<button class="bdng" onclick="delEntry(${e.id})" type="button">Delete</button>`:'<div></div>'}
-        <div class="ef-actions-right">
-          <button class="bgho" onclick="closeInline()" type="button">Cancel</button>
-          <button class="bpri" onclick="saveEntry()" type="button">Save</button>
-        </div>
-      </div>
-    </div>
   `;
 }
 
@@ -350,22 +341,13 @@ function render(){
   else if(aSort==='created')list=[...list].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
   const el=document.getElementById('elist');
 
-  let html='';
-
-  // New entry form at top
-  if(expandedId==='new'){
-    html+=`<div class="ecard expanded">${buildEntryForm(null)}</div>`;
-  }
-
-  if(!list.length && expandedId!=='new'){
+  if(!list.length){
     el.innerHTML=`<div class="empty"><div class="empty-hex">⬡</div><p>No entries${q?' found':' yet'}</p><div class="hint">${q?'Try a different search':'Tap + to add your first entry'}</div></div>`;
     return;
   }
 
+  let html='';
   html+=list.map((e,i)=>{
-    if(expandedId===e.id){
-      return `<div class="ecard expanded" data-type="${e.type}">${buildEntryForm(e)}</div>`;
-    }
     const folder=folders.find(f=>f.id===e.folder_id);
     const ic=iconSvg(folder?.icon||(e.type==='login'?'key':'filetext'),20,folder?.color||null);
     const meta=e.type==='login'?(e.data.username||e.data.url||'No username'):'Secure note';
@@ -378,34 +360,23 @@ function render(){
   }).join('');
 
   el.innerHTML=html;
-
-  // After render, scroll expanded card into view and trigger strength check
-  if(expandedId!==null){
-    const exp=el.querySelector('.ecard.expanded');
-    if(exp){
-      exp.scrollIntoView({behavior:'smooth',block:'nearest'});
-      setTimeout(()=>{
-        const titleIn=document.getElementById('eTitle');
-        if(titleIn && expandedId==='new')titleIn.focus();
-        updateStrength();
-      },60);
-    }
-  }
 }
 
 // ── Inline entry actions ──────────────────────────────────────────────
 
-function openEntry(){
-  expandedId='new';
-  render();
+function openEntry(){ openEntryModal(null); }
+function openEdit(id){ const e=entries.find(x=>x.id===id); if(e) openEntryModal(e); }
+function openEntryModal(e){
+  expandedId=e?e.id:'new';
+  document.getElementById('eMt').textContent=e?'Edit Entry':'New Entry';
+  document.getElementById('eBody').innerHTML=buildEntryForm(e);
+  document.getElementById('eDelWrap').innerHTML=e?`<button class="bdng" onclick="delEntry(${e.id})" type="button">Delete</button>`:'';
+  document.getElementById('eOv').classList.add('on');
+  setTimeout(()=>{const t=document.getElementById('eTitle');if(t&&expandedId==='new')t.focus();updateStrength();},50);
 }
-function openEdit(id){
-  expandedId=id;
-  render();
-}
-function closeInline(){
+function closeEntryModal(){
   expandedId=null;
-  render();
+  document.getElementById('eOv').classList.remove('on');
 }
 function togLoginInline(){
   const l=document.getElementById('eType').value==='login';
@@ -439,7 +410,7 @@ async function saveEntry(){
     }
     renderF();
   }
-  expandedId=null;
+  closeEntryModal();
   render();
   toast(eid!=='new'?'Entry updated':'Entry saved');
 }
@@ -449,7 +420,7 @@ async function delEntry(id){
   const entry=entries.find(x=>x.id===id);
   if(entry)trashEntries.unshift(entry);
   entries=entries.filter(x=>x.id!==id);
-  expandedId=null;
+  closeEntryModal();
   renderF();render();
   toast('Moved to trash');
 }
