@@ -107,6 +107,12 @@ button,input,textarea,select{font-family:var(--sans)}
 .fi-item .fn{display:flex;align-items:center;gap:8px}
 .fi-item .fc{font-family:var(--mono);font-size:10px;color:var(--text-muted);background:var(--surface2);padding:2px 7px;border-radius:10px}
 .fi-item.on .fc{background:var(--accent-glow2);color:var(--accent-dim)}
+.fi-trash{margin-top:auto;border-top:1px solid var(--border)}
+.fi-trash:hover{color:var(--danger)!important} .fi-trash.on{color:var(--danger)!important;border-left-color:var(--danger)!important;background:color-mix(in srgb,var(--danger) 8%,transparent)!important}
+.fi-trash.on .fc{background:color-mix(in srgb,var(--danger) 12%,transparent);color:var(--danger)}
+.trash-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;margin-bottom:8px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-muted)}
+.trash-bar .bdng{padding:6px 12px;font-size:11px}
+.ecopy-restore{color:var(--accent)!important} .ecopy-danger{color:var(--danger)!important}
 .fdel,.fedit{opacity:0;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px;padding:2px 4px;border-radius:4px;transition:all .12s}
 .fi-item:hover .fdel,.fi-item:hover .fedit{opacity:.7} .fdel:hover{color:var(--danger);opacity:1!important} .fedit:hover{color:var(--accent);opacity:1!important}
 .s-label-row{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 8px}

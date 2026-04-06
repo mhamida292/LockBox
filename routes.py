@@ -249,6 +249,7 @@ def list_entries():
         SELECT e.id, e.type, e.title, e.encrypted_data, e.folder_id,
                e.created_at, e.updated_at, f.name as folder_name
         FROM entries e LEFT JOIN folders f ON e.folder_id = f.id
+        WHERE e.deleted_at IS NULL
         ORDER BY e.updated_at DESC
     """).fetchall()
     conn.close()
@@ -333,7 +334,71 @@ def update_entry(eid):
 @login_required
 def delete_entry(eid):
     conn = get_db()
-    conn.execute("DELETE FROM entries WHERE id=?", (eid,))
+    conn.execute("UPDATE entries SET deleted_at=CURRENT_TIMESTAMP WHERE id=? AND deleted_at IS NULL", (eid,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+# ── Trash ─────────────────────────────────────────────────────────────
+
+@bp.route("/api/trash")
+@login_required
+def list_trash():
+    conn = get_db()
+    # Auto-purge entries deleted more than 30 days ago
+    conn.execute("DELETE FROM entries WHERE deleted_at IS NOT NULL AND deleted_at < datetime('now', '-30 days')")
+    conn.commit()
+    rows = conn.execute("""
+        SELECT e.id, e.type, e.title, e.encrypted_data, e.folder_id,
+               e.created_at, e.updated_at, e.deleted_at, f.name as folder_name
+        FROM entries e LEFT JOIN folders f ON e.folder_id = f.id
+        WHERE e.deleted_at IS NOT NULL
+        ORDER BY e.deleted_at DESC
+    """).fetchall()
+    conn.close()
+    key = get_entry_key()
+    results = []
+    for r in rows:
+        try:
+            decrypted = json.loads(decrypt_with_key(r["encrypted_data"], key))
+        except Exception:
+            decrypted = {}
+        results.append({
+            "id": r["id"],
+            "type": r["type"],
+            "title": r["title"],
+            "data": decrypted,
+            "folder_id": r["folder_id"],
+            "folder_name": r["folder_name"],
+            "created_at": r["created_at"],
+            "updated_at": r["updated_at"],
+            "deleted_at": r["deleted_at"],
+        })
+    return jsonify(results)
+
+@bp.route("/api/entries/<int:eid>/restore", methods=["POST"])
+@login_required
+def restore_entry(eid):
+    conn = get_db()
+    conn.execute("UPDATE entries SET deleted_at=NULL WHERE id=?", (eid,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+@bp.route("/api/entries/<int:eid>/permanent", methods=["DELETE"])
+@login_required
+def permanent_delete_entry(eid):
+    conn = get_db()
+    conn.execute("DELETE FROM entries WHERE id=? AND deleted_at IS NOT NULL", (eid,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+@bp.route("/api/trash/empty", methods=["POST"])
+@login_required
+def empty_trash():
+    conn = get_db()
+    conn.execute("DELETE FROM entries WHERE deleted_at IS NOT NULL")
     conn.commit()
     conn.close()
     return jsonify({"ok": True})

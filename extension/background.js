@@ -5,6 +5,20 @@ let cachedFolders = [];
 let serverUrl = '';
 let isLoggedIn = false;
 
+// On startup, restore serverUrl and verify session is still valid
+chrome.storage.local.get(['serverUrl'], async (data) => {
+  if (!data.serverUrl) return;
+  serverUrl = data.serverUrl;
+  try {
+    const res = await fetch(`${serverUrl}/api/status`, { credentials: 'include' });
+    const d = await res.json();
+    if (d.authenticated) {
+      isLoggedIn = true;
+      await fetchEntries();
+    }
+  } catch (e) {}
+});
+
 // Listen for messages from popup and content scripts
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'getState') {

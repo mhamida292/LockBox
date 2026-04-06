@@ -15,6 +15,7 @@ A self-hosted password vault built for simplicity. One Docker container, one mas
 - Logins (username, password, URL) and secure notes
 - Folders with customizable icons (20 options) and colors (9 swatches)
 - Inline entry editing — no modals, edit entries right in the list
+- Trash / recycle bin — restore deleted entries, auto-purge after 30 days
 - Search and sort (Recent, Newest, A→Z, Z→A)
 - Copy username / password to clipboard, open URL directly
 
@@ -39,6 +40,7 @@ Compatible with Chrome and Firefox (Manifest V2).
 - Detects login forms on any site and injects an inline fill button
 - Single match fills immediately; multiple matches show a picker
 - Fill from the popup directly into the active tab
+- Multi-step login support (e.g. Google — fills email on step 1, password on step 2)
 
 **Save Prompts**
 - Detects form submissions and offers to save new credentials
@@ -122,11 +124,11 @@ Without your master password, the backup is useless to anyone else.
 
 1. **Entry modal in extension** — view and edit logins (username, password, URL) and notes directly from the popup without opening the vault
 2. **WebAuthn biometric login** — Face ID / fingerprint login for the web app
-3. **Fix extension bugs** — padlock icon appearing randomly and in wrong positions on some pages
-4. **Multi-step login form support** — handle sites like Google where email and password are on separate screens
+3. ~~**Fix extension bugs** — padlock icon appearing randomly and in wrong positions on some pages~~ ✓
+4. ~~**Multi-step login form support** — handle sites like Google where email and password are on separate screens~~ ✓
 5. **Increase extension UI scale** — larger fonts and better readability in the popup
 6. **Drag and drop category reordering** — reorder folders/categories in the web app
-7. **Trash/recycle bin** — recover deleted entries, auto-empty after 30 days
+7. ~~**Trash/recycle bin** — recover deleted entries, auto-empty after 30 days~~ ✓
 8. **Replace entry action icons** — refresh the copy/fill button icons in the extension popup
 
 ## Tech Stack

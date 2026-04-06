@@ -1,4 +1,4 @@
-let entries=[],folders=[],aFolder=null,aType='all',aSort='updated';
+let entries=[],folders=[],trashEntries=[],aFolder=null,aType='all',aSort='updated';
 let expandedId=null; // null, 'new', or entry id
 let selFolderIcon='key',selFolderColor='',editFolderId=null;
 let lockTimer=null,trackingStarted=false;
@@ -127,12 +127,15 @@ async function showApp(){
   startActivityTracking();
 }
 async function doLogout(){await fetch('/api/logout',{method:'POST'});location.reload()}
-async function loadData(){const[f,e]=await Promise.all([fetch('/api/folders'),fetch('/api/entries')]);folders=await f.json();entries=await e.json();renderF();render()}
+async function loadData(){const[f,e,t]=await Promise.all([fetch('/api/folders'),fetch('/api/entries'),fetch('/api/trash')]);folders=await f.json();entries=await e.json();trashEntries=await t.json();renderF();render()}
 
 // ── Sidebar ───────────────────────────────────────────────────────────
 
 function openSB(){document.getElementById('sidebar').classList.add('open');document.getElementById('shade').classList.add('open')}
 function closeSB(){document.getElementById('sidebar').classList.remove('open');document.getElementById('shade').classList.remove('open')}
+
+const TRASH_SVG='<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 0-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>';
+function trashSvg(size=14){return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${TRASH_SVG}</svg>`}
 
 function renderF(){
   const el=document.getElementById('flist'),ct={};
@@ -149,6 +152,7 @@ function renderF(){
       </span>
     </li>`;
   });
+  h+=`<li class="fi-item fi-trash ${aFolder==='trash'?'on':''}" onclick="pickF('trash')"><span class="fn">${trashSvg(14)} Trash</span><span class="fc">${trashEntries.length||''}</span></li>`;
   el.innerHTML=h;
 }
 function pickF(id){aFolder=id;renderF();render();closeSB()}
@@ -301,8 +305,42 @@ function buildEntryForm(e){
 
 // ── Render entries ────────────────────────────────────────────────────
 
+function renderTrash(q){
+  const el=document.getElementById('elist');
+  let list=trashEntries;
+  if(aType!=='all')list=list.filter(e=>e.type===aType);
+  if(q)list=list.filter(e=>e.title.toLowerCase().includes(q));
+  if(aSort==='az')list=[...list].sort((a,b)=>a.title.localeCompare(b.title));
+  else if(aSort==='za')list=[...list].sort((a,b)=>b.title.localeCompare(a.title));
+  else if(aSort==='created')list=[...list].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  if(!list.length&&!trashEntries.length){
+    el.innerHTML='<div class="empty"><div class="empty-hex">⬡</div><p>Trash is empty</p><div class="hint">Deleted entries appear here for 30 days</div></div>';
+    return;
+  }
+  const emptyBtn=trashEntries.length?`<button class="bdng" onclick="emptyTrash()">Empty Trash</button>`:'';
+  let html=`<div class="trash-bar"><span>${trashEntries.length} item${trashEntries.length!==1?'s':''} in trash</span>${emptyBtn}</div>`;
+  if(!list.length){el.innerHTML=html+'<div class="empty"><div class="empty-hex">⬡</div><p>No results</p></div>';return}
+  html+=list.map((e,i)=>{
+    const folder=folders.find(f=>f.id===e.folder_id);
+    const ic=iconSvg(folder?.icon||(e.type==='login'?'key':'filetext'),20,folder?.color||null);
+    const meta=e.type==='login'?(e.data.username||e.data.url||'No username'):'Secure note';
+    return `<div class="ecard" data-type="${e.type}" style="animation-delay:${i*.03}s">
+      <div class="eicon">${ic}</div>
+      <div class="einfo"><div class="etitle">${esc(e.title)}</div><div class="emeta">${esc(meta)}</div></div>
+      <div class="ecopy-group">
+        <button class="ecopy ecopy-restore" onclick="restoreEntry(${e.id})" title="Restore">↩</button>
+        <button class="ecopy ecopy-danger" onclick="permDeleteEntry(${e.id})" title="Delete permanently">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+  el.innerHTML=html;
+}
+
 function render(){
   const q=document.getElementById('searchIn').value.toLowerCase();
+  const addBtn=document.querySelector('.btn-new');
+  if(addBtn)addBtn.style.display=aFolder==='trash'?'none':'';
+  if(aFolder==='trash'){renderTrash(q);return}
   let list=entries;
   if(aFolder!==null)list=list.filter(e=>e.folder_id===aFolder);
   if(aType!=='all')list=list.filter(e=>e.type===aType);
@@ -405,12 +443,36 @@ async function saveEntry(){
   toast(eid!=='new'?'Entry updated':'Entry saved');
 }
 async function delEntry(id){
-  if(!confirm('Delete this entry permanently?'))return;
+  if(!confirm('Move this entry to trash?'))return;
   await fetch(`/api/entries/${id}`,{method:'DELETE'});
+  const entry=entries.find(x=>x.id===id);
+  if(entry)trashEntries.unshift(entry);
   entries=entries.filter(x=>x.id!==id);
   expandedId=null;
   renderF();render();
-  toast('Entry deleted');
+  toast('Moved to trash');
+}
+async function restoreEntry(id){
+  await fetch(`/api/entries/${id}/restore`,{method:'POST'});
+  const entry=trashEntries.find(x=>x.id===id);
+  if(entry)entries.unshift(entry);
+  trashEntries=trashEntries.filter(x=>x.id!==id);
+  renderF();render();
+  toast('Entry restored');
+}
+async function permDeleteEntry(id){
+  if(!confirm('Permanently delete this entry? This cannot be undone.'))return;
+  await fetch(`/api/entries/${id}/permanent`,{method:'DELETE'});
+  trashEntries=trashEntries.filter(x=>x.id!==id);
+  renderF();render();
+  toast('Entry permanently deleted');
+}
+async function emptyTrash(){
+  if(!confirm(`Permanently delete all ${trashEntries.length} item${trashEntries.length!==1?'s':''} in trash? This cannot be undone.`))return;
+  await fetch('/api/trash/empty',{method:'POST'});
+  trashEntries=[];
+  renderF();render();
+  toast('Trash emptied');
 }
 
 // ── Copy ──────────────────────────────────────────────────────────────

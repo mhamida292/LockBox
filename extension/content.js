@@ -3,6 +3,8 @@
 // ── Skip injection on the LockBox app itself ─────────────────────────
 
 chrome.storage.local.get(['serverUrl'], (data) => {
+  // Always skip the LockBox app itself, regardless of whether serverUrl is configured
+  if (document.querySelector('meta[name="lockbox-vault"]')) return;
   if (data.serverUrl) {
     try {
       const serverOrigin = new URL(data.serverUrl).origin;
@@ -25,16 +27,79 @@ chrome.runtime.onMessage.addListener((msg) => {
 const LOCKBOX_ATTR = 'data-lockbox-btn';
 const ICON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
 
+// ── Multi-step login state ───────────────────────────────────────────
+
+let capturedUsername = null;
+let capturedUsernameExpiry = 0;
+
+function getCapturedUsername() {
+  if (capturedUsername && Date.now() < capturedUsernameExpiry) return capturedUsername;
+  capturedUsername = null;
+  return null;
+}
+
+function setCapturedUsername(val) {
+  capturedUsername = val;
+  capturedUsernameExpiry = Date.now() + 120000;
+  chrome.storage.local.set({ capturedUsername: { value: val, expiry: capturedUsernameExpiry, origin: location.origin } });
+}
+
+// Restore captured username from storage (survives full page navigations)
+chrome.storage.local.get(['capturedUsername'], (data) => {
+  const c = data && data.capturedUsername;
+  if (c && c.origin === location.origin && Date.now() < c.expiry) {
+    capturedUsername = c.value;
+    capturedUsernameExpiry = c.expiry;
+  }
+});
+
+const USER_FIELD_SELECTOR = [
+  'input[type="email"]',
+  'input[autocomplete="username"]',
+  'input[autocomplete="email"]',
+  'input[name*="user" i]',
+  'input[name*="email" i]',
+  'input[name*="login" i]',
+  'input[id*="user" i]',
+  'input[id*="email" i]',
+  'input[id*="login" i]',
+].join(',');
+
+function looksLikeLoginField(field) {
+  const ac = (field.getAttribute('autocomplete') || '').toLowerCase();
+  // Skip new-password fields (registration / change-password forms)
+  if (ac === 'new-password') return false;
+  // Explicit current-password — always a login field
+  if (ac === 'current-password') return true;
+  // Multi-step: we captured an email from step 1 on this domain
+  if (getCapturedUsername()) return true;
+  // Look for a username/email field in the same form or nearest container
+  const container = field.closest('form') || field.closest('[role="dialog"]') || field.parentElement;
+  return !!(container && container.querySelector(USER_FIELD_SELECTOR));
+}
+
 function injectButtons() {
-  const fields = document.querySelectorAll('input[type="password"]');
-  fields.forEach(field => {
+  // Standard: inject on password fields in login forms
+  const passFields = document.querySelectorAll('input[type="password"]');
+  passFields.forEach(field => {
     if (field.hasAttribute(LOCKBOX_ATTR) || !isVisible(field)) return;
+    if (!looksLikeLoginField(field)) return;
     field.setAttribute(LOCKBOX_ATTR, 'true');
     createFillButton(field);
   });
+
+  // Multi-step step 1: inject on email/username field when no password field is visible
+  const anyVisiblePass = [...passFields].some(f => isVisible(f));
+  if (!anyVisiblePass) {
+    const emailField = document.querySelector(USER_FIELD_SELECTOR);
+    if (emailField && isVisible(emailField) && !emailField.hasAttribute(LOCKBOX_ATTR)) {
+      emailField.setAttribute(LOCKBOX_ATTR, 'true');
+      createFillButton(emailField, true);
+    }
+  }
 }
 
-function createFillButton(field) {
+function createFillButton(field, isEmailStep = false) {
   // Create host element
   const host = document.createElement('div');
   host.className = 'lockbox-fill-host';
@@ -115,14 +180,13 @@ function createFillButton(field) {
   const picker = shadow.querySelector('.lb-picker');
 
   // Position the button inside the field
+  const useFixed = hasFixedAncestor(field);
   function positionBtn() {
     const rect = field.getBoundingClientRect();
-    host.style.position = 'absolute';
-    host.style.top = (window.scrollY + rect.top + (rect.height - 24) / 2) + 'px';
-    host.style.left = (window.scrollX + rect.right - 30) + 'px';
+    host.style.position = useFixed ? 'fixed' : 'absolute';
+    host.style.top = ((useFixed ? 0 : window.scrollY) + rect.top + (rect.height - 24) / 2) + 'px';
+    host.style.left = ((useFixed ? 0 : window.scrollX) + rect.right - 30) + 'px';
   }
-  positionBtn();
-
   // Reposition on scroll/resize
   let rafId = null;
   const reposition = () => {
@@ -138,6 +202,16 @@ function createFillButton(field) {
   window.addEventListener('scroll', reposition, { passive: true, capture: true });
   window.addEventListener('resize', reposition, { passive: true });
 
+  // Delay initial position until after any expand/reveal animations settle
+  positionBtn();
+  setTimeout(positionBtn, 350);
+
+  // Re-position whenever the field's size changes (handles animated containers)
+  if ('ResizeObserver' in window) {
+    const ro = new ResizeObserver(reposition);
+    ro.observe(field);
+  }
+
   btn.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -145,15 +219,28 @@ function createFillButton(field) {
     chrome.runtime.sendMessage({ type: 'getMatches', url: window.location.href }, (res) => {
       const matches = (res && res.matches) || [];
 
+      function applyEntry(entry) {
+        const username = entry.data.username || '';
+        const password = entry.data.password || '';
+        if (isEmailStep) {
+          // Step 1: fill only the email field and capture for step 2
+          setNativeValue(field, username);
+          flashField(field);
+          setCapturedUsername(username);
+        } else {
+          fillForm(username, password);
+        }
+        picker.classList.remove('open');
+        btn.classList.add('filled');
+        setTimeout(() => btn.classList.remove('filled'), 1200);
+      }
+
       if (matches.length === 0) {
         picker.innerHTML = `<div class="lb-picker-title">Lockbox</div><div class="lb-empty">No saved logins for this site</div>`;
         picker.classList.add('open');
         setTimeout(() => picker.classList.remove('open'), 2000);
       } else if (matches.length === 1) {
-        // Single match — fill immediately
-        fillForm(matches[0].data.username || '', matches[0].data.password || '');
-        btn.classList.add('filled');
-        setTimeout(() => btn.classList.remove('filled'), 1200);
+        applyEntry(matches[0]);
       } else {
         // Multiple matches — show picker
         picker.innerHTML = `<div class="lb-picker-title">Lockbox</div>` +
@@ -171,12 +258,7 @@ function createFillButton(field) {
           item.addEventListener('click', (ev) => {
             ev.preventDefault();
             ev.stopPropagation();
-            const idx = parseInt(item.dataset.idx);
-            const entry = matches[idx];
-            fillForm(entry.data.username || '', entry.data.password || '');
-            picker.classList.remove('open');
-            btn.classList.add('filled');
-            setTimeout(() => btn.classList.remove('filled'), 1200);
+            applyEntry(matches[parseInt(item.dataset.idx)]);
           });
         });
       }
@@ -186,6 +268,7 @@ function createFillButton(field) {
   // Close picker on outside click
   document.addEventListener('click', () => picker.classList.remove('open'));
 
+  host._lbField = field;
   document.body.appendChild(host);
 }
 
@@ -195,64 +278,86 @@ function escHtml(s) {
   return d.innerHTML;
 }
 
-// ── Detect login submissions & offer to save ────────────────────────
+// ── Multi-step login: capture email from step 1 ──────────────────────
 
-function watchFormSubmissions() {
-  document.addEventListener('submit', handleFormSubmit, true);
-
-  // Also catch JS-driven logins (click on submit buttons)
-  document.addEventListener('click', (e) => {
-    const btn = e.target.closest('button[type="submit"], input[type="submit"]');
-    if (btn) {
-      const form = btn.closest('form');
-      if (form) handleFormSubmit({ target: form, preventDefault: () => {} });
+function captureEmailStep() {
+  // Continuously track any visible email/username field value.
+  // This is more reliable than catching button clicks.
+  function snapshotEmailField() {
+    const passField = document.querySelector('input[type="password"]');
+    if (passField && isVisible(passField)) return; // step 2 — don't overwrite
+    const candidates = document.querySelectorAll(USER_FIELD_SELECTOR + ', input[type="text"]');
+    for (const f of candidates) {
+      if (isVisible(f) && f.value.trim()) {
+        setCapturedUsername(f.value.trim());
+        return;
+      }
     }
+  }
+
+  // Snapshot on input changes
+  document.addEventListener('input', snapshotEmailField, true);
+  // Snapshot on blur (catches autofill)
+  document.addEventListener('blur', snapshotEmailField, true);
+  // Snapshot on button/Next clicks
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('button, input[type="submit"], [role="button"]');
+    if (btn) snapshotEmailField();
+  }, true);
+  // Snapshot on Enter key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') snapshotEmailField();
   }, true);
 }
 
-function handleFormSubmit(e) {
-  const form = e.target;
-  if (!form || !form.querySelectorAll) return;
+// ── Detect login submissions & offer to save ────────────────────────
 
-  const passField = form.querySelector('input[type="password"]');
-  if (!passField || !passField.value) return;
+function watchFormSubmissions() {
+  document.addEventListener('submit', (e) => handleFormSubmit(e.target), true);
 
-  // Find the username field in the same form
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('button, input[type="submit"], [role="button"]');
+    if (!btn) return;
+    // Try form first, fall back to whole document (for JS-driven multi-step like Google)
+    const container = btn.closest('form') || document;
+    handleFormSubmit(container);
+  }, true);
+}
+
+function handleFormSubmit(container) {
+  if (!container || !container.querySelector) return;
+
+  // Find a visible, filled password field
+  let passField = null;
+  container.querySelectorAll('input[type="password"]').forEach(f => {
+    if (!passField && isVisible(f) && f.value) passField = f;
+  });
+  if (!passField) return;
+
+  // Find username in container first, then whole document
   const userSelectors = [
     'input[type="email"]',
     'input[autocomplete="username"]',
     'input[autocomplete="email"]',
-    'input[name="username"]',
-    'input[name="email"]',
-    'input[name="login"]',
-    'input[id="username"]',
-    'input[id="email"]',
-    'input[id="login"]',
-    'input[type="text"][name*="user"]',
-    'input[type="text"][name*="email"]',
-    'input[type="text"][name*="login"]',
-    'input[name*="user"]',
-    'input[name*="email"]',
-    'input[name*="login"]',
-    'input[id*="user"]',
-    'input[id*="email"]',
-    'input[id*="login"]',
+    'input[name="username"]', 'input[name="email"]', 'input[name="login"]',
+    'input[id="username"]',  'input[id="email"]',   'input[id="login"]',
+    'input[name*="user"]',   'input[name*="email"]', 'input[name*="login"]',
+    'input[id*="user"]',     'input[id*="email"]',   'input[id*="login"]',
     'input[type="text"]',
-    'input:not([type="password"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="image"]):not([type="reset"]):not([type="search"]):not([type="number"]):not([type="tel"]):not([type="date"])',
   ];
 
   let username = '';
   for (const sel of userSelectors) {
-    const f = form.querySelector(sel);
+    const f = container.querySelector(sel);
     if (f && f !== passField && f.value) { username = f.value; break; }
   }
+  // Multi-step fallback: use email captured from the previous step
+  if (!username) username = getCapturedUsername() || '';
 
   const password = passField.value;
   const url = window.location.hostname;
   const siteTitle = document.title.split(/[|\-–—]/)[0].trim() || url;
 
-  // Stash credentials in storage — the prompt will show on the next page load
-  // (since form submission navigates away and destroys this page)
   chrome.storage.local.set({
     pendingSave: {
       username,
@@ -270,8 +375,8 @@ function checkPendingSave() {
     const pending = data && data.pendingSave;
     if (!pending) return;
 
-    // Expire after 30 seconds (user may have navigated elsewhere)
-    if (Date.now() - pending.timestamp > 30000) {
+    // Expire after 2 minutes
+    if (Date.now() - pending.timestamp > 120000) {
       chrome.storage.local.remove('pendingSave');
       return;
     }
@@ -455,19 +560,49 @@ function escAttr(s) {
 
 // ── Observe for dynamically added fields ────────────────────────────
 
+function cleanupOrphans() {
+  document.querySelectorAll('.lockbox-fill-host').forEach(h => {
+    if (h._lbField && !document.body.contains(h._lbField)) h.remove();
+  });
+}
+
 function init() {
-  const observer = new MutationObserver(() => injectButtons());
+  const observer = new MutationObserver(() => { cleanupOrphans(); injectButtons(); });
   observer.observe(document.documentElement, { childList: true, subtree: true });
 
   injectButtons();
   watchFormSubmissions();
+  captureEmailStep();
   checkPendingSave();
 
+  // Safety net: on page unload, save credentials if a filled password field exists
+  window.addEventListener('beforeunload', () => {
+    const passField = [...document.querySelectorAll('input[type="password"]')].find(f => isVisible(f) && f.value);
+    if (!passField) return;
+    const username = getCapturedUsername() || '';
+    const url = location.hostname;
+    const siteTitle = document.title.split(/[|\-–—]/)[0].trim() || url;
+    chrome.storage.local.set({
+      pendingSave: { username, password: passField.value, url, origin: location.origin, title: siteTitle, timestamp: Date.now() }
+    });
+  });
+
   let lastUrl = location.href;
+  let lastHost = location.hostname;
   setInterval(() => {
     if (location.href !== lastUrl) {
       lastUrl = location.href;
+      // Clear captured username if we've left the domain
+      if (location.hostname !== lastHost) {
+        capturedUsername = null;
+        chrome.storage.local.remove('capturedUsername');
+        lastHost = location.hostname;
+      }
+      // Full cleanup on navigation — remove all injected buttons and markers
+      document.querySelectorAll('.lockbox-fill-host').forEach(h => h.remove());
+      document.querySelectorAll(`[${LOCKBOX_ATTR}]`).forEach(f => f.removeAttribute(LOCKBOX_ATTR));
       injectButtons();
+      checkPendingSave();
     }
   }, 1500);
 }
@@ -548,7 +683,17 @@ function setNativeValue(el, value) {
 function isVisible(el) {
   if (!el) return false;
   const style = window.getComputedStyle(el);
-  return style.display !== 'none' && style.visibility !== 'hidden' && el.offsetParent !== null;
+  if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+  return el.offsetWidth > 0 && el.offsetHeight > 0;
+}
+
+function hasFixedAncestor(el) {
+  let parent = el.parentElement;
+  while (parent && parent !== document.documentElement) {
+    if (window.getComputedStyle(parent).position === 'fixed') return true;
+    parent = parent.parentElement;
+  }
+  return false;
 }
 
 function flashField(el) {

@@ -46,6 +46,12 @@ def init_db():
         conn.commit()
     except sqlite3.OperationalError:
         pass  # Column already exists
+    # Migrate: add deleted_at column for trash/recycle bin
+    try:
+        conn.execute("ALTER TABLE entries ADD COLUMN deleted_at TIMESTAMP DEFAULT NULL")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # Column already exists
     try:
         conn.execute("INSERT INTO folders (name) VALUES (?)", ("General",))
         conn.commit()
