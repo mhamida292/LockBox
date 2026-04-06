@@ -134,6 +134,19 @@ async function loadData(){const[f,e,t]=await Promise.all([fetch('/api/folders'),
 function openSB(){document.getElementById('sidebar').classList.add('open');document.getElementById('shade').classList.add('open')}
 function closeSB(){document.getElementById('sidebar').classList.remove('open');document.getElementById('shade').classList.remove('open')}
 
+// ── Swipe to open/close sidebar (mobile) ─────────────────────────────
+(function(){
+  let x0=0,y0=0;
+  const EDGE=40,THRESH=60;
+  document.addEventListener('touchstart',e=>{x0=e.touches[0].clientX;y0=e.touches[0].clientY},{passive:true});
+  document.addEventListener('touchend',e=>{
+    const dx=e.changedTouches[0].clientX-x0,dy=e.changedTouches[0].clientY-y0;
+    if(Math.abs(dy)>Math.abs(dx)||Math.abs(dx)<THRESH)return;
+    if(dx>0&&x0<EDGE)openSB();
+    else if(dx<0)closeSB();
+  },{passive:true});
+})();
+
 const TRASH_SVG='<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 0-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>';
 function trashSvg(size=14){return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${TRASH_SVG}</svg>`}
 
