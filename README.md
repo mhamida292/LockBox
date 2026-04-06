@@ -122,14 +122,14 @@ Without your master password, the backup is useless to anyone else.
 
 ## Roadmap
 
-1. **Entry modal in extension** — view and edit logins (username, password, URL) and notes directly from the popup without opening the vault
+1. ~~**Entry modal in extension** — view and edit logins (username, password, URL) and notes directly from the popup without opening the vault~~ ✓
 2. **WebAuthn biometric login** — Face ID / fingerprint login for the web app
 3. ~~**Fix extension bugs** — padlock icon appearing randomly and in wrong positions on some pages~~ ✓
 4. ~~**Multi-step login form support** — handle sites like Google where email and password are on separate screens~~ ✓
-5. **Increase extension UI scale** — larger fonts and better readability in the popup
+5. ~~**Increase extension UI scale** — larger fonts and better readability in the popup~~ ✓
 6. **Drag and drop category reordering** — reorder folders/categories in the web app
 7. ~~**Trash/recycle bin** — recover deleted entries, auto-empty after 30 days~~ ✓
-8. **Replace entry action icons** — refresh the copy/fill button icons in the extension popup
+8. ~~**Replace entry action icons** — refresh the copy/fill button icons in the extension popup~~ ✓
 
 ## Tech Stack
 

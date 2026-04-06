@@ -5,6 +5,7 @@ let allFolders = [];
 let matchedIds = new Set();
 let activeFolder = null; // null = all
 let themeOpen = false;
+let currentDetailId = null;
 
 // ── Themes ───────────────────────────────────────────────────────────
 
@@ -60,6 +61,8 @@ const ICONS = {
   briefcase: '<rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>',
   cart:      '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
   gamepad:   '<line x1="6" x2="10" y1="11" y2="11"/><line x1="8" x2="8" y1="9" y2="13"/><line x1="15" x2="15.01" y1="12" y2="12"/><line x1="18" x2="18.01" y1="10" y2="10"/><rect width="20" height="12" x="2" y="6" rx="2"/>',
+  eye:       '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+  eyeoff:    '<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/>',
   mappin:    '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
   music:     '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
   play:      '<circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/>',
@@ -361,6 +364,197 @@ function attachFillHandlers(container) {
         flashBtn(btn);
       }
     });
+  });
+  // Row click → open detail panel
+  container.querySelectorAll('.entry').forEach(row => {
+    row.addEventListener('click', () => openEntryDetail(parseInt(row.dataset.id)));
+  });
+}
+
+// ── Entry detail panel ────────────────────────────────────────────────
+
+function openEntryDetail(id) {
+  const entry = allEntries.find(e => e.id === id);
+  if (!entry) return;
+  currentDetailId = id;
+
+  $('detailPanelTitle').textContent = entry.title;
+  $('detailErr').textContent = '';
+  $('detailSave').textContent = 'Save';
+  $('detailSave').disabled = false;
+  $('detailDelete').textContent = 'Delete';
+  $('detailDelete').dataset.confirm = '';
+
+  const folderOptions = allFolders.map(f =>
+    `<option value="${f.id}">${esc(f.name)}</option>`
+  ).join('');
+
+  if (entry.type === 'login') {
+    $('detailBody').innerHTML = `
+      <div class="df">
+        <label>Title</label>
+        <input id="dTitle" type="text" placeholder="Title">
+      </div>
+      <div style="display:flex;gap:8px">
+        <div class="df" style="flex:1;min-width:0">
+          <label>Username</label>
+          <input id="dUsername" type="text" placeholder="Username" autocomplete="off">
+        </div>
+        <div class="df" style="flex:1;min-width:0">
+          <label>Password</label>
+          <div class="pw-wrap">
+            <input id="dPassword" type="password" placeholder="Password" autocomplete="off">
+            <button class="pw-reveal" id="pwToggle" type="button">${iconSvg('eye', 14)}</button>
+          </div>
+        </div>
+      </div>
+      <div class="df">
+        <label>URL</label>
+        <input id="dUrl" type="text" placeholder="https://example.com">
+      </div>
+      <div class="df">
+        <label>Notes</label>
+        <textarea id="dNotes" placeholder="Optional notes..."></textarea>
+      </div>
+      <div class="df">
+        <label>Folder</label>
+        <select id="dFolder"><option value="">No folder</option>${folderOptions}</select>
+      </div>
+    `;
+    $('dTitle').value = entry.title;
+    $('dUsername').value = entry.data.username || '';
+    $('dPassword').value = entry.data.password || '';
+    $('dUrl').value = entry.data.url || '';
+    $('dNotes').value = entry.data.notes || '';
+    $('pwToggle').addEventListener('click', () => {
+      const inp = $('dPassword');
+      const isHidden = inp.type === 'password';
+      inp.type = isHidden ? 'text' : 'password';
+      $('pwToggle').innerHTML = iconSvg(isHidden ? 'eyeoff' : 'eye', 14);
+    });
+  } else {
+    $('detailBody').innerHTML = `
+      <div class="df">
+        <label>Title</label>
+        <input id="dTitle" type="text" placeholder="Title">
+      </div>
+      <div class="df">
+        <label>Notes</label>
+        <textarea id="dNotes" placeholder="Your secure note..."></textarea>
+      </div>
+      <div class="df">
+        <label>Folder</label>
+        <select id="dFolder"><option value="">No folder</option>${folderOptions}</select>
+      </div>
+    `;
+    $('dTitle').value = entry.title;
+    $('dNotes').value = entry.data.notes || entry.data.content || '';
+  }
+
+  // Set selected folder
+  if (entry.folder_id) {
+    const sel = $('dFolder');
+    for (let i = 0; i < sel.options.length; i++) {
+      if (parseInt(sel.options[i].value) === entry.folder_id) {
+        sel.selectedIndex = i;
+        break;
+      }
+    }
+  }
+
+  $('detailBack').onclick = closeEntryDetail;
+  $('detailSave').onclick = saveDetailEntry;
+  $('detailDelete').onclick = deleteDetailEntry;
+
+  $('mainScreen').classList.add('hidden');
+  const searchWrap = $('topBar').querySelector('.search-wrap');
+  const folderTabs = $('topBar').querySelector('.folder-tabs');
+  if (searchWrap) searchWrap.style.display = 'none';
+  if (folderTabs) folderTabs.style.display = 'none';
+  $('detailPanel').classList.remove('hidden');
+}
+
+function closeEntryDetail() {
+  currentDetailId = null;
+  $('detailPanel').classList.add('hidden');
+  $('mainScreen').classList.remove('hidden');
+  const searchWrap = $('topBar').querySelector('.search-wrap');
+  const folderTabs = $('topBar').querySelector('.folder-tabs');
+  if (searchWrap) searchWrap.style.display = '';
+  if (folderTabs) folderTabs.style.display = '';
+}
+
+function saveDetailEntry() {
+  if (!currentDetailId) return;
+  const entry = allEntries.find(e => e.id === currentDetailId);
+  if (!entry) return;
+
+  const title = $('dTitle').value.trim();
+  if (!title) { $('detailErr').textContent = 'Title is required'; return; }
+
+  const folderVal = $('dFolder').value;
+  const folder_id = folderVal ? parseInt(folderVal) : null;
+
+  let data;
+  if (entry.type === 'login') {
+    data = {
+      username: $('dUsername').value,
+      password: $('dPassword').value,
+      url: $('dUrl').value.trim(),
+      notes: $('dNotes').value,
+    };
+  } else {
+    data = { notes: $('dNotes').value };
+  }
+
+  $('detailSave').disabled = true;
+  $('detailSave').textContent = 'Saving…';
+
+  chrome.runtime.sendMessage({ type: 'updateEntry', id: currentDetailId, title, folder_id, data }, (res) => {
+    if (res && res.ok) {
+      const idx = allEntries.findIndex(e => e.id === currentDetailId);
+      if (idx !== -1) allEntries[idx] = { ...allEntries[idx], title, folder_id, data };
+      closeEntryDetail();
+      renderFolderTabs();
+      loadMatches();
+      renderEntries(getVisibleEntries());
+      $('statusBar').textContent = `${allEntries.length} entries`;
+    } else {
+      $('detailErr').textContent = (res && res.error) || 'Save failed';
+      $('detailSave').disabled = false;
+      $('detailSave').textContent = 'Save';
+    }
+  });
+}
+
+function deleteDetailEntry() {
+  const btn = $('detailDelete');
+  if (btn.dataset.confirm !== '1') {
+    btn.textContent = 'Confirm?';
+    btn.dataset.confirm = '1';
+    setTimeout(() => {
+      if (btn.dataset.confirm === '1') {
+        btn.textContent = 'Delete';
+        btn.dataset.confirm = '';
+      }
+    }, 3000);
+    return;
+  }
+  btn.dataset.confirm = '';
+  btn.textContent = 'Deleting…';
+  const id = currentDetailId;
+  chrome.runtime.sendMessage({ type: 'deleteEntry', id }, (res) => {
+    if (res && res.ok) {
+      allEntries = allEntries.filter(e => e.id !== id);
+      closeEntryDetail();
+      renderFolderTabs();
+      loadMatches();
+      renderEntries(getVisibleEntries());
+      $('statusBar').textContent = `${allEntries.length} entries`;
+    } else {
+      $('detailErr').textContent = (res && res.error) || 'Delete failed';
+      btn.textContent = 'Delete';
+    }
   });
 }
 

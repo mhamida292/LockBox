@@ -154,6 +154,58 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
+  if (msg.type === 'updateEntry') {
+    if (!serverUrl || !isLoggedIn) {
+      sendResponse({ ok: false, error: 'Not logged in' });
+      return true;
+    }
+    (async () => {
+      try {
+        const res = await fetch(`${serverUrl}/api/entries/${msg.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ title: msg.title, folder_id: msg.folder_id || null, data: msg.data }),
+        });
+        const d = await res.json();
+        if (d.ok) {
+          await fetchEntries();
+          sendResponse({ ok: true });
+        } else {
+          sendResponse({ ok: false, error: d.error || 'Update failed' });
+        }
+      } catch (e) {
+        sendResponse({ ok: false, error: 'Cannot reach server' });
+      }
+    })();
+    return true;
+  }
+
+  if (msg.type === 'deleteEntry') {
+    if (!serverUrl || !isLoggedIn) {
+      sendResponse({ ok: false, error: 'Not logged in' });
+      return true;
+    }
+    (async () => {
+      try {
+        const res = await fetch(`${serverUrl}/api/entries/${msg.id}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        });
+        const d = await res.json();
+        if (d.ok) {
+          await fetchEntries();
+          sendResponse({ ok: true });
+        } else {
+          sendResponse({ ok: false, error: d.error || 'Delete failed' });
+        }
+      } catch (e) {
+        sendResponse({ ok: false, error: 'Cannot reach server' });
+      }
+    })();
+    return true;
+  }
+
   if (msg.type === 'getFolders') {
     sendResponse({ folders: cachedFolders });
     return true;

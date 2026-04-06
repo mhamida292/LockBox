@@ -72,9 +72,9 @@
 /* ── Base ────────────────────────────────────────────────────────────── */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
-  width: 420px; min-height: 200px; max-height: 500px;
+  width: 460px; min-height: 200px; max-height: 560px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: var(--bg); color: var(--text); font-size: 13px;
+  background: var(--bg); color: var(--text); font-size: 14px;
   overflow-y: auto;
 }
 
@@ -86,100 +86,106 @@ body {
 }
 .header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 16px;
+  padding: 14px 18px;
+  background: radial-gradient(ellipse 200% 160% at 0% 0%, var(--accent-glow2), var(--accent-glow) 50%, transparent);
 }
-.logo { font-size: 12px; font-weight: 700; letter-spacing: 4px; color: var(--accent); text-transform: uppercase; }
+.logo { font-size: 13px; font-weight: 700; letter-spacing: 4px; color: var(--accent); text-transform: uppercase; }
 .hbtn {
   background: none; border: 1px solid var(--border); color: var(--text-muted);
-  width: 34px; height: 34px; border-radius: 7px; cursor: pointer; font-size: 14px;
+  width: 36px; height: 36px; border-radius: 7px; cursor: pointer; font-size: 15px;
   display: flex; align-items: center; justify-content: center; transition: all .15s;
 }
 .hbtn:hover { border-color: var(--border-hover); color: var(--text-dim); }
 .hbtn.dng:hover { border-color: var(--danger); color: var(--danger); }
 
-.search-wrap { padding: 0 16px 10px; }
+.search-wrap { padding: 0 18px 12px; }
 .search-wrap input {
-  width: 100%; padding: 8px 10px; background: var(--bg);
+  width: 100%; padding: 9px 12px; background: var(--bg);
   border: 1.5px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 12px; outline: none; transition: all .2s;
+  color: var(--text); font-size: 13px; outline: none; transition: all .2s;
 }
 .search-wrap input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
 .search-wrap input::placeholder { color: var(--text-muted); }
 
 /* ── Folder tabs ─────────────────────────────────────────────────────── */
 .folder-tabs {
-  display: flex; gap: 4px; padding: 0 16px 10px;
+  display: flex; gap: 4px; padding: 0 18px 12px;
   flex-wrap: wrap;
 }
 .folder-tabs:empty { display: none; }
 .ftab {
   display: flex; align-items: center; gap: 4px;
-  padding: 4px 16px; border-radius: 6px; border: 1px solid var(--border);
+  padding: 5px 14px; border-radius: 6px; border: 1px solid var(--border);
   background: var(--surface2); color: var(--text-muted);
-  font-size: 10px; font-weight: 600; cursor: pointer;
+  font-size: 11px; font-weight: 600; cursor: pointer;
   white-space: nowrap; transition: all .15s; flex-shrink: 0;
 }
 .ftab:hover { border-color: var(--border-hover); color: var(--text-dim); }
 .ftab.on { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
 
 /* ── Setup / Login ───────────────────────────────────────────────────── */
-.screen { padding: 20px 16px; }
-.screen h3 { font-size: 12px; font-weight: 600; color: var(--text-dim); margin-bottom: 12px; letter-spacing: 1px; text-transform: uppercase; }
-.field { margin-bottom: 10px; }
-.field label { display: block; font-size: 10px; font-weight: 600; color: var(--text-muted); margin-bottom: 5px; letter-spacing: 1px; text-transform: uppercase; }
+.screen { padding: 22px 18px; }
+.screen h3 { font-size: 13px; font-weight: 600; color: var(--text-dim); margin-bottom: 14px; letter-spacing: 1px; text-transform: uppercase; }
+.field { margin-bottom: 12px; }
+.field label { display: block; font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 5px; letter-spacing: 1px; text-transform: uppercase; }
 .field input {
-  width: 100%; padding: 10px 12px; background: var(--surface);
+  width: 100%; padding: 11px 13px; background: var(--surface);
   border: 1.5px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 13px; outline: none; transition: all .2s;
+  color: var(--text); font-size: 14px; outline: none; transition: all .2s;
 }
 .field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
 .field input::placeholder { color: var(--text-muted); }
 .btn {
-  width: 100%; padding: 10px; margin-top: 6px;
+  width: 100%; padding: 11px; margin-top: 6px;
   background: var(--accent); color: #fff; border: none; border-radius: 8px;
-  font-size: 12px; font-weight: 600; cursor: pointer; transition: all .2s;
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: all .2s;
 }
 .btn:hover { background: var(--accent-hover); }
-.err { color: var(--danger); font-size: 11px; margin-top: 8px; min-height: 16px; }
+.err { color: var(--danger); font-size: 12px; margin-top: 8px; min-height: 16px; }
 
 /* ── Entries ──────────────────────────────────────────────────────────── */
 .match-label {
-  padding: 8px 16px 4px; font-size: 10px; font-weight: 600;
+  padding: 10px 18px 5px; font-size: 11px; font-weight: 600;
   color: var(--accent); letter-spacing: 1px; text-transform: uppercase;
 }
 .entry {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 16px; cursor: pointer; transition: all .12s;
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 18px; cursor: pointer; transition: all .12s;
   border-bottom: 1px solid var(--border);
 }
 .entry:hover { background: var(--surface2); }
 .entry:active { background: var(--accent-glow); }
 .e-icon {
-  width: 32px; height: 32px; border-radius: 8px;
+  width: 36px; height: 36px; border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
   background: var(--surface2); border: 1px solid var(--border);
-  font-size: 14px; flex-shrink: 0; color: var(--accent);
+  font-size: 16px; flex-shrink: 0; color: var(--accent);
 }
 .e-info { flex: 1; min-width: 0; }
-.e-title { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.e-meta { font-size: 11px; color: var(--text-muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.e-title { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.e-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Inline action buttons */
 .e-acts {
-  display: flex; gap: 3px; flex-shrink: 0; margin-left: auto;
+  display: flex; gap: 4px; flex-shrink: 0; margin-left: auto;
 }
 .e-act {
   display: flex; align-items: center; justify-content: center;
-  width: 26px; height: 26px; border-radius: 6px;
+  width: 30px; height: 30px; border-radius: 6px;
   border: 1px solid var(--border); background: none;
   color: var(--text-muted); cursor: pointer;
   transition: all .15s; padding: 0;
 }
-.e-act:hover { border-color: var(--border-hover); color: var(--text-dim); background: var(--surface2); }
-.e-act-fill { border-color: var(--accent); color: var(--accent); }
-.e-act-fill:hover { background: var(--accent); color: #fff; }
+.e-act[data-action="copy-user"] { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+.e-act[data-action="copy-user"]:hover { background: rgba(108,140,255,0.2); }
+.e-act[data-action="copy-pass"] { border-color: rgba(61,214,140,0.4); color: var(--success); background: rgba(61,214,140,0.08); }
+.e-act[data-action="copy-pass"]:hover { border-color: var(--success); background: rgba(61,214,140,0.18); }
+.e-act[data-action="copy-note"] { border-color: rgba(167,139,250,0.4); color: #a78bfa; background: rgba(167,139,250,0.08); }
+.e-act[data-action="copy-note"]:hover { border-color: #a78bfa; background: rgba(167,139,250,0.18); }
+.e-act-fill { border-color: rgba(245,158,11,0.4); color: #f59e0b; background: rgba(245,158,11,0.08); }
+.e-act-fill:hover { border-color: #f59e0b; background: rgba(245,158,11,0.18); }
 
-.empty { padding: 30px 16px; text-align: center; color: var(--text-muted); font-size: 12px; }
-.status { padding: 6px 16px; font-size: 10px; color: var(--text-muted); text-align: center; border-top: 1px solid var(--border); }
+.empty { padding: 32px 18px; text-align: center; color: var(--text-muted); font-size: 13px; }
+.status { padding: 8px 18px; font-size: 11px; color: var(--text-muted); text-align: center; border-top: 1px solid var(--border); }
 
 /* ── Theme picker ────────────────────────────────────────────────────── */
 .theme-panel {
@@ -211,7 +217,67 @@ body {
 .swatch-dot { width: 8px; height: 8px; border-radius: 50%; }
 .swatch-name { font-size: 9px; font-weight: 600; color: var(--text-dim); }
 
-.hidden { display: none; }
+.hidden { display: none !important; }
+
+/* ── Entry detail panel ──────────────────────────────────────────────── */
+.detail-panel { display: flex; flex-direction: column; }
+.detail-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 18px; border-bottom: 1px solid var(--border);
+}
+.detail-back {
+  background: none; border: 1px solid var(--border); color: var(--text-muted);
+  width: 28px; height: 28px; border-radius: 6px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; flex-shrink: 0; transition: all .15s;
+}
+.detail-back:hover { border-color: var(--border-hover); color: var(--text-dim); }
+.detail-panel-title {
+  font-size: 13px; font-weight: 600; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.detail-body { padding: 12px 18px; display: flex; flex-direction: column; gap: 10px; }
+.df { display: flex; flex-direction: column; gap: 3px; }
+.df label { font-size: 10px; font-weight: 600; color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; }
+.df input, .df textarea, .df select {
+  width: 100%; padding: 7px 10px; box-sizing: border-box;
+  background: var(--surface2); border: 1.5px solid var(--border);
+  border-radius: 7px; color: var(--text); font-size: 13px;
+  outline: none; transition: border-color .15s, box-shadow .15s; font-family: inherit;
+}
+.df textarea { resize: vertical; min-height: 80px; }
+.df select { cursor: pointer; appearance: none; -webkit-appearance: none; }
+.df input:focus, .df textarea:focus, .df select:focus {
+  border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.df input::placeholder, .df textarea::placeholder { color: var(--text-muted); }
+.pw-wrap { position: relative; }
+.pw-wrap input { padding-right: 32px; }
+.pw-reveal {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; color: var(--text-muted); cursor: pointer;
+  padding: 0; display: flex; align-items: center; transition: color .15s;
+}
+.pw-reveal:hover { color: var(--text-dim); }
+.detail-err { color: var(--danger); font-size: 11px; padding: 0 18px 2px; min-height: 16px; }
+.detail-footer {
+  display: flex; gap: 8px; padding: 10px 18px;
+  border-top: 1px solid var(--border); background: var(--surface);
+  position: sticky; bottom: 0;
+}
+.btn-save {
+  flex: 1; padding: 9px;
+  background: var(--accent); color: #fff; border: none; border-radius: 7px;
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: background .15s;
+}
+.btn-save:hover { background: var(--accent-hover); }
+.btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-del {
+  padding: 9px 13px; background: none; color: var(--danger);
+  border: 1px solid rgba(255,92,106,0.3); border-radius: 7px;
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.btn-del:hover { background: rgba(255,92,106,0.08); border-color: var(--danger); }
 </style>
 </head>
 <body>
@@ -247,6 +313,20 @@ body {
   </div>
   <div id="entryList"></div>
   <div class="status" id="statusBar"></div>
+</div>
+
+<!-- Entry detail screen -->
+<div id="detailPanel" class="hidden detail-panel">
+    <div class="detail-header">
+      <button class="detail-back" id="detailBack">&#8592;</button>
+      <div class="detail-panel-title" id="detailPanelTitle"></div>
+    </div>
+    <div class="detail-body" id="detailBody"></div>
+    <div class="detail-err" id="detailErr"></div>
+    <div class="detail-footer">
+      <button class="btn-save" id="detailSave">Save</button>
+      <button class="btn-del" id="detailDelete">Delete</button>
+    </div>
 </div>
 
 <script src="popup.js"></script>
