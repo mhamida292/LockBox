@@ -88,21 +88,10 @@ loadTheme();
 async function init() {
   chrome.runtime.sendMessage({ type: 'getState' }, (state) => {
     if (state.serverUrl) $('serverUrl').value = state.serverUrl;
-    if (state.isLoggedIn && state.entries.length >= 0) {
+    if (state.isLoggedIn) {
       allEntries = state.entries;
       allFolders = state.folders || [];
       showMain();
-      // Refresh in background to get latest data
-      chrome.runtime.sendMessage({ type: 'refresh' }, (res) => {
-        if (res && res.ok) {
-          allEntries = res.entries;
-          allFolders = res.folders || [];
-          $('statusBar').textContent = `${allEntries.length} entries`;
-          renderFolderTabs();
-          loadMatches();
-          renderEntries(getVisibleEntries());
-        }
-      });
     } else {
       showSetup();
     }
@@ -126,11 +115,13 @@ function showMain() {
   $('setupScreen').classList.add('hidden');
   $('mainScreen').classList.remove('hidden');
   $('headerActions').innerHTML = `
+    <button class="hbtn" id="newEntryBtn" title="New Entry" style="font-size:19px;font-weight:300;line-height:1">+</button>
     <button class="hbtn" id="openVaultBtn" title="Open Vault">${iconSvg('globe', 16)}</button>
     <button class="hbtn" id="themeBtn" title="Theme">${iconSvg('palette', 16)}</button>
     <button class="hbtn" id="refreshBtn" title="Refresh">↻</button>
     <button class="hbtn dng" id="lockBtn" title="Lock">${iconSvg('lock', 16)}</button>
   `;
+  $('newEntryBtn').addEventListener('click', openNewEntry);
   $('openVaultBtn').addEventListener('click', () => {
     chrome.storage.local.get(['serverUrl'], (data) => {
       if (data.serverUrl) chrome.tabs.create({ url: data.serverUrl });
@@ -202,12 +193,17 @@ $('masterPw').addEventListener('keydown', e => { if (e.key === 'Enter') doConnec
 $('serverUrl').addEventListener('keydown', e => { if (e.key === 'Enter') $('masterPw').focus(); });
 
 async function doConnect() {
-  const url = $('serverUrl').value.trim();
+  let url = $('serverUrl').value.trim();
   const pw = $('masterPw').value;
   const err = $('setupErr');
   err.textContent = '';
 
   if (!url) { err.textContent = 'Enter your server URL'; return; }
+  if (!/^https?:\/\//i.test(url)) {
+    const isLocal = /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(url);
+    url = (isLocal ? 'http://' : 'https://') + url;
+  }
+  $('serverUrl').value = url;
   if (!pw) { err.textContent = 'Enter your master password'; return; }
 
   $('connectBtn').textContent = 'Connecting...';
@@ -232,14 +228,13 @@ async function doConnect() {
 
 function doRefresh() {
   chrome.runtime.sendMessage({ type: 'refresh' }, (res) => {
-    if (res.ok) {
-      allEntries = res.entries;
-      allFolders = res.folders || [];
-      $('statusBar').textContent = `${allEntries.length} entries — refreshed`;
-      renderFolderTabs();
-      loadMatches();
-      renderEntries(getVisibleEntries());
-    }
+    if (!res || !res.ok) { showSetup(); return; }
+    allEntries = res.entries;
+    allFolders = res.folders || [];
+    $('statusBar').textContent = `${allEntries.length} entries — refreshed`;
+    renderFolderTabs();
+    loadMatches();
+    renderEntries(getVisibleEntries());
   });
 }
 
@@ -587,6 +582,103 @@ function esc(s) {
   const d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
+}
+
+// ── New entry panel ───────────────────────────────────────────────────
+
+function openNewEntry() {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const tabUrl = (tabs[0] && tabs[0].url && !tabs[0].url.startsWith('chrome')) ? tabs[0].url : '';
+    const folderOptions = allFolders.map(f =>
+      `<option value="${f.id}">${esc(f.name)}</option>`
+    ).join('');
+
+    $('newEntryBody').innerHTML = `
+      <div class="df">
+        <label>Title</label>
+        <input id="nTitle" type="text" placeholder="e.g. GitHub, Netflix...">
+      </div>
+      <div class="df">
+        <label>Username</label>
+        <input id="nUsername" type="text" placeholder="user@example.com" autocomplete="off">
+      </div>
+      <div class="df">
+        <label>Password</label>
+        <div class="pw-wrap">
+          <input id="nPassword" type="password" placeholder="Password" autocomplete="off">
+          <button class="pw-reveal" id="nPwToggle" type="button">${iconSvg('eye', 14)}</button>
+        </div>
+      </div>
+      <div class="df">
+        <label>URL</label>
+        <input id="nUrl" type="text" placeholder="https://...">
+      </div>
+      <div class="df">
+        <label>Folder</label>
+        <select id="nFolder"><option value="">No folder</option>${folderOptions}</select>
+      </div>
+    `;
+    $('nUrl').value = tabUrl;
+    $('nPwToggle').addEventListener('click', () => {
+      const inp = $('nPassword');
+      const hidden = inp.type === 'password';
+      inp.type = hidden ? 'text' : 'password';
+      $('nPwToggle').innerHTML = iconSvg(hidden ? 'eyeoff' : 'eye', 14);
+    });
+
+    $('newEntrySave').textContent = 'Save';
+    $('newEntrySave').disabled = false;
+    $('newEntryErr').textContent = '';
+    $('newEntryBack').onclick = closeNewEntry;
+    $('newEntrySave').onclick = saveNewEntry;
+
+    $('mainScreen').classList.add('hidden');
+    const searchWrap = $('topBar').querySelector('.search-wrap');
+    const folderTabs = $('topBar').querySelector('.folder-tabs');
+    if (searchWrap) searchWrap.style.display = 'none';
+    if (folderTabs) folderTabs.style.display = 'none';
+    $('newEntryPanel').classList.remove('hidden');
+    setTimeout(() => $('nTitle').focus(), 50);
+  });
+}
+
+function closeNewEntry() {
+  $('newEntryPanel').classList.add('hidden');
+  $('mainScreen').classList.remove('hidden');
+  const searchWrap = $('topBar').querySelector('.search-wrap');
+  const folderTabs = $('topBar').querySelector('.folder-tabs');
+  if (searchWrap) searchWrap.style.display = '';
+  if (folderTabs) folderTabs.style.display = '';
+}
+
+function saveNewEntry() {
+  const title = $('nTitle').value.trim();
+  if (!title) { $('newEntryErr').textContent = 'Title is required'; return; }
+
+  const username = $('nUsername').value;
+  const password = $('nPassword').value;
+  const url = $('nUrl').value.trim();
+  const folderVal = $('nFolder').value;
+  const folder_id = folderVal ? parseInt(folderVal) : null;
+
+  $('newEntrySave').disabled = true;
+  $('newEntrySave').textContent = 'Saving…';
+
+  chrome.runtime.sendMessage({ type: 'saveEntry', title, username, password, url, folder_id }, (res) => {
+    if (res && res.ok) {
+      allEntries = res.entries || allEntries;
+      allFolders = res.folders || allFolders;
+      closeNewEntry();
+      $('statusBar').textContent = `${allEntries.length} entries`;
+      renderFolderTabs();
+      loadMatches();
+      renderEntries(getVisibleEntries());
+    } else {
+      $('newEntryErr').textContent = (res && res.error) || 'Save failed';
+      $('newEntrySave').disabled = false;
+      $('newEntrySave').textContent = 'Save';
+    }
+  });
 }
 
 // ── Start ─────────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@ let entries=[],folders=[],trashEntries=[],aFolder=null,aType='all',aSort='update
 let expandedId=null; // null, 'new', or entry id
 let selFolderIcon='key',selFolderColor='',editFolderId=null;
 let lockTimer=null,trackingStarted=false;
-let P={theme:'midnight',pwLen:'20',symbols:'true',lockMin:'30'};
+let P={theme:'midnight',pwLen:'20',symbols:'true',lockMin:'0'};
 try{const s=JSON.parse(localStorage.getItem('lb_p'));if(s)P={...P,...s}}catch(e){}
 
 // ── Icons ─────────────────────────────────────────────────────────────

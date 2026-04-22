@@ -5,9 +5,22 @@ let cachedFolders = [];
 let serverUrl = '';
 let isLoggedIn = false;
 
+// Startup gate: popup may open before the async status check finishes
+let _startupReady = false;
+let _startupCallbacks = [];
+function whenReady(fn) {
+  if (_startupReady) fn();
+  else _startupCallbacks.push(fn);
+}
+function markReady() {
+  _startupReady = true;
+  _startupCallbacks.forEach(fn => fn());
+  _startupCallbacks = [];
+}
+
 // On startup, restore serverUrl and verify session is still valid
 chrome.storage.local.get(['serverUrl'], async (data) => {
-  if (!data.serverUrl) return;
+  if (!data.serverUrl) { markReady(); return; }
   serverUrl = data.serverUrl;
   try {
     const res = await fetch(`${serverUrl}/api/status`, { credentials: 'include' });
@@ -17,13 +30,16 @@ chrome.storage.local.get(['serverUrl'], async (data) => {
       await fetchEntries();
     }
   } catch (e) {}
+  markReady();
 });
 
 // Listen for messages from popup and content scripts
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'getState') {
-    chrome.storage.local.get(['serverUrl'], (data) => {
-      sendResponse({ serverUrl: data.serverUrl || '', isLoggedIn, entries: cachedEntries, folders: cachedFolders });
+    whenReady(() => {
+      chrome.storage.local.get(['serverUrl'], (data) => {
+        sendResponse({ serverUrl: data.serverUrl || '', isLoggedIn, entries: cachedEntries, folders: cachedFolders });
+      });
     });
     return true;
   }
@@ -114,7 +130,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
   if (msg.type === 'refresh') {
-    fetchEntries().then(() => sendResponse({ ok: true, entries: cachedEntries, folders: cachedFolders }));
+    fetchEntries().then(() => sendResponse({ ok: isLoggedIn, entries: cachedEntries, folders: cachedFolders }));
     return true;
   }
 
@@ -142,8 +158,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         });
         const d = await res.json();
         if (d.ok) {
-          await fetchEntries(); // refresh cache
-          sendResponse({ ok: true });
+          await fetchEntries();
+          sendResponse({ ok: true, entries: cachedEntries, folders: cachedFolders });
         } else {
           sendResponse({ ok: false, error: d.error || 'Save failed' });
         }
@@ -218,24 +234,23 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 });
 
 async function fetchEntries() {
-  if (!serverUrl) return;
+  if (!serverUrl) return false;
   try {
     const [eRes, fRes] = await Promise.all([
       fetch(`${serverUrl}/api/entries`, { credentials: 'include' }),
       fetch(`${serverUrl}/api/folders`, { credentials: 'include' }),
     ]);
-    if (eRes.ok) {
-      cachedEntries = await eRes.json();
-    } else {
+    if (eRes.status === 401) {
       isLoggedIn = false;
       cachedEntries = [];
+      cachedFolders = [];
+      return false;
     }
-    if (fRes.ok) {
-      cachedFolders = await fRes.json();
-    }
+    if (eRes.ok) cachedEntries = await eRes.json();
+    if (fRes.ok) cachedFolders = await fRes.json();
+    return true;
   } catch (e) {
-    cachedEntries = [];
-    cachedFolders = [];
+    return false;
   }
 }
 
