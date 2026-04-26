@@ -6,6 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Lockbox</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
 <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.json">
@@ -22,7 +23,7 @@
 <div class="auth-screen" id="authScreen">
     <div class="auth-bg"></div>
     <div class="auth-box">
-        <div class="auth-hex">⬡</div>
+        <div class="auth-hex"><img src="/static/logo-mark.svg?v=2" alt="Lockbox" width="84" height="84"></div>
         <div class="auth-logo">Lockbox</div>
         <div class="auth-sub" id="authSub">Create your master password</div>
         <div class="auth-field"><input type="password" id="masterIn" placeholder="Master password" autofocus></div>
@@ -36,7 +37,7 @@
     <div class="shade" id="shade" onclick="closeSB()"></div>
     <aside class="sidebar" id="sidebar">
         <div class="s-head">
-            <div class="s-brand"><span>⬡</span> Lockbox</div>
+            <div class="s-brand"><img src="/static/logo-mark.svg?v=2" alt="" width="22" height="22"> Lockbox</div>
             <div class="s-actions">
                 <button class="ibtn" onclick="openSet()" title="Settings">⚙</button>
                 <button class="ibtn dng" onclick="doLogout()" title="Lock">🔒</button>
